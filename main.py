@@ -69,6 +69,23 @@ async def get_browser():
         
     return GLOBAL_BROWSER
 
+async def force_relaunch_browser():
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    print("Force relaunching browser singleton...")
+    if GLOBAL_BROWSER:
+        try:
+            await GLOBAL_BROWSER.close()
+        except Exception:
+            pass
+        GLOBAL_BROWSER = None
+    if GLOBAL_PLAYWRIGHT:
+        try:
+            await GLOBAL_PLAYWRIGHT.stop()
+        except Exception:
+            pass
+        GLOBAL_PLAYWRIGHT = None
+    await get_browser()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Pre-warm browser on startup
@@ -230,10 +247,19 @@ async def fill_form_playwright(data: SubmitRequest):
     
     browser = await get_browser()
 
-    # Create a new isolated context for this request
-    context = await browser.new_context(
-        viewport={"width": 1280, "height": 900}
-    )
+    # Create a new isolated context for this request (with auto-healing fallback)
+    try:
+        context = await browser.new_context(
+            viewport={"width": 1280, "height": 900}
+        )
+    except Exception as e:
+        print(f"Failed to create context: {e}. Force relaunching browser singleton...")
+        await force_relaunch_browser()
+        browser = await get_browser()
+        context = await browser.new_context(
+            viewport={"width": 1280, "height": 900}
+        )
+        
     page = await context.new_page()
     
     try:
@@ -342,17 +368,12 @@ async def fill_form_playwright(data: SubmitRequest):
         err_msg = f"Error: {str(e)}"
         RUNNING_LOGS.append(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
-        try:
-            err_bytes = await page.screenshot(type="png", timeout=5000)
-            err_b64 = base64.b64encode(err_bytes).decode('utf-8')
-            return {
-                "success": False,
-                "error": f"Lỗi điền form: {str(e)}",
-                "screenshot_filled": f"data:image/png;base64,{err_b64}",
-                "screenshot_submitted": ""
-            }
-        except Exception:
-            return {"success": False, "error": f"Lỗi điền form: {str(e)}"}
+        return {
+            "success": False,
+            "error": f"Lỗi điền form: {str(e)}",
+            "screenshot_filled": "",
+            "screenshot_submitted": ""
+        }
     finally:
         # Only close context (pages inside it are closed automatically)
         await context.close()
