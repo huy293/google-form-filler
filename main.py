@@ -37,6 +37,41 @@ NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh
 
 submit_lock = asyncio.Lock()
 
+# Global browser singleton for speed and low RAM usage on Render
+GLOBAL_PLAYWRIGHT = None
+GLOBAL_BROWSER = None
+
+@app.on_event("startup")
+async def startup_event():
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    print("Initializing global Playwright and Chromium browser...")
+    GLOBAL_PLAYWRIGHT = await async_playwright().start()
+    
+    launch_args = []
+    if os.name != 'nt':  # Linux/Docker
+        launch_args = [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ]
+        
+    GLOBAL_BROWSER = await GLOBAL_PLAYWRIGHT.chromium.launch(
+        headless=True,
+        args=launch_args
+    )
+    print("Global Chromium browser launched and ready!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    if GLOBAL_BROWSER:
+        print("Closing global Chromium browser...")
+        await GLOBAL_BROWSER.close()
+    if GLOBAL_PLAYWRIGHT:
+        print("Stopping global Playwright...")
+        await GLOBAL_PLAYWRIGHT.stop()
+
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
     index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
@@ -111,27 +146,17 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    # Launch playwright
-    launch_args = []
-    if os.name != 'nt':  # Linux/Docker
-        launch_args = [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu"
-        ]
+    global GLOBAL_BROWSER
+    if not GLOBAL_BROWSER:
+        raise HTTPException(status_code=500, detail="Browser is not initialized. Please try again in a few seconds.")
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=launch_args
-        )
-        context = await browser.new_context(
-            viewport={"width": 1280, "height": 900}
-        )
-        page = await context.new_page()
-        
-        try:
+    # Create a new isolated context for this request
+    context = await GLOBAL_BROWSER.new_context(
+        viewport={"width": 1280, "height": 900}
+    )
+    page = await context.new_page()
+    
+    try:
             # Go to form
             print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
             await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
@@ -233,8 +258,8 @@ async def fill_form_playwright(data: SubmitRequest):
             except Exception:
                 return {"success": False, "error": f"Lỗi điền form: {str(e)}"}
         finally:
+            # Only close context (pages inside it are closed automatically)
             await context.close()
-            await browser.close()
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
