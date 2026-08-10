@@ -157,109 +157,109 @@ async def fill_form_playwright(data: SubmitRequest):
     page = await context.new_page()
     
     try:
-            # Go to form
-            print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-            await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
+        # Go to form
+        print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
+        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
+        
+        # 1. Fill basic text fields (including text-based Visa Expiry)
+        fields_to_fill = {
+            "Họ và tên người đăng ký": "178418221",
+            "Số điện thoại người đăng ký": "2093418625",
+            "Họ và tên khách": "955098140",
+            "Năm sinh": "870248713",
+            "Mã Căn Hộ": "175253502",
+            "Hộ Chiếu_CCCD": "1388064463",
+            "VISA": "2009586042",
+            "Hạn VISA": "1149566062",
+            "Quốc tịch": "1515902134",
+            "Thông tin hộ khẩu": "2023500619"
+        }
+        
+        for label, entry_id in fields_to_fill.items():
+            val = row_data[label]
+            container = page.locator(f'div[data-params*="{entry_id}"]')
+            input_el = container.locator('input[type="text"], textarea')
+            await input_el.first.fill(str(val))
+            await asyncio.sleep(0.05)
             
-            # 1. Fill basic text fields (including text-based Visa Expiry)
-            fields_to_fill = {
-                "Họ và tên người đăng ký": "178418221",
-                "Số điện thoại người đăng ký": "2093418625",
-                "Họ và tên khách": "955098140",
-                "Năm sinh": "870248713",
-                "Mã Căn Hộ": "175253502",
-                "Hộ Chiếu_CCCD": "1388064463",
-                "VISA": "2009586042",
-                "Hạn VISA": "1149566062",
-                "Quốc tịch": "1515902134",
-                "Thông tin hộ khẩu": "2023500619"
-            }
-            
-            for label, entry_id in fields_to_fill.items():
-                val = row_data[label]
-                container = page.locator(f'div[data-params*="{entry_id}"]')
-                input_el = container.locator('input[type="text"], textarea')
-                await input_el.first.fill(str(val))
-                await asyncio.sleep(0.05)
+        # Dropdown: Chủ thể - 117977297
+        container = page.locator('div[data-params*="117977297"]')
+        await container.locator('div[role="listbox"]').first.click(force=True)
+        await asyncio.sleep(0.3)
+        # Language-independent option click: select the first option with force=True
+        await page.locator('div[role="option"]').first.click(force=True)
+        await asyncio.sleep(0.1)
+        
+        # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
+        date_fields = {
+            "Ngày đến": "1707290555",
+            "Ngày ra": "1028902383"
+        }
+        
+        for label, entry_id in date_fields.items():
+            val = row_data[label] # YYYY-MM-DD
+            container = page.locator(f'div[data-params*="{entry_id}"]')
+            await container.locator('input[type="date"]').fill(val)
+            await asyncio.sleep(0.05)
                 
-            # Dropdown: Chủ thể - 117977297
-            container = page.locator('div[data-params*="117977297"]')
-            await container.locator('div[role="listbox"]').first.click(force=True)
-            await asyncio.sleep(0.3)
-            # Language-independent option click: select the first option with force=True
-            await page.locator('div[role="option"]').first.click(force=True)
-            await asyncio.sleep(0.1)
+        # Time: Thời gian vào - 1773051864 (HH:MM)
+        time_val = row_data["Thời gian vào"]
+        time_parts = time_val.split(':')
+        if len(time_parts) == 2:
+            hour, minute = time_parts[0], time_parts[1]
+            container = page.locator('div[data-params*="1773051864"]')
+            # Fill hour and minute text inputs by index (language-independent)
+            await container.locator('input[type="text"]').nth(0).fill(hour)
+            await container.locator('input[type="text"]').nth(1).fill(minute)
+            await asyncio.sleep(0.05)
             
-            # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
-            date_fields = {
-                "Ngày đến": "1707290555",
-                "Ngày ra": "1028902383"
-            }
-            
-            for label, entry_id in date_fields.items():
-                val = row_data[label] # YYYY-MM-DD
-                container = page.locator(f'div[data-params*="{entry_id}"]')
-                await container.locator('input[type="date"]').fill(val)
-                await asyncio.sleep(0.05)
-                    
-            # Time: Thời gian vào - 1773051864 (HH:MM)
-            time_val = row_data["Thời gian vào"]
-            time_parts = time_val.split(':')
-            if len(time_parts) == 2:
-                hour, minute = time_parts[0], time_parts[1]
-                container = page.locator('div[data-params*="1773051864"]')
-                # Fill hour and minute text inputs by index (language-independent)
-                await container.locator('input[type="text"]').nth(0).fill(hour)
-                await container.locator('input[type="text"]').nth(1).fill(minute)
-                await asyncio.sleep(0.05)
-                
-            # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
-            container = page.locator('div[data-params*="1651751105"]')
-            await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
-            await asyncio.sleep(0.2)
-            
-            # Settle and take first screenshot (filled form)
-            await page.evaluate("window.scrollTo(0, 0);")
-            await asyncio.sleep(0.3)
-            filled_bytes = await page.screenshot(type="png", full_page=True)
-            screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
-            
-            # Click submit (Unicode-independent class selection)
-            submit_btn = page.locator('div[role="button"].Y5sE8d').first
-            await submit_btn.click()
-            
-            # Wait for confirmation page
-            await page.wait_for_load_state("networkidle", timeout=12000)
-            await asyncio.sleep(1.0)
-            
-            # Take submitted screenshot
-            submitted_bytes = await page.screenshot(type="png", full_page=False)
-            screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
-            
-            print(f"Successfully submitted and captured screenshots for {guest_name}!")
+        # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
+        container = page.locator('div[data-params*="1651751105"]')
+        await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
+        await asyncio.sleep(0.2)
+        
+        # Settle and take first screenshot (filled form)
+        await page.evaluate("window.scrollTo(0, 0);")
+        await asyncio.sleep(0.3)
+        filled_bytes = await page.screenshot(type="png", full_page=True)
+        screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
+        
+        # Click submit (Unicode-independent class selection)
+        submit_btn = page.locator('div[role="button"].Y5sE8d').first
+        await submit_btn.click()
+        
+        # Wait for confirmation page
+        await page.wait_for_load_state("networkidle", timeout=12000)
+        await asyncio.sleep(1.0)
+        
+        # Take submitted screenshot
+        submitted_bytes = await page.screenshot(type="png", full_page=False)
+        screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
+        
+        print(f"Successfully submitted and captured screenshots for {guest_name}!")
+        return {
+            "success": True,
+            "guestName": guest_name,
+            "screenshot_filled": f"data:image/png;base64,{screenshot_filled_b64}",
+            "screenshot_submitted": f"data:image/png;base64,{screenshot_submitted_b64}"
+        }
+        
+    except Exception as e:
+        print(f"Error filling form for {guest_name}: {e}")
+        try:
+            err_bytes = await page.screenshot(type="png")
+            err_b64 = base64.b64encode(err_bytes).decode('utf-8')
             return {
-                "success": True,
-                "guestName": guest_name,
-                "screenshot_filled": f"data:image/png;base64,{screenshot_filled_b64}",
-                "screenshot_submitted": f"data:image/png;base64,{screenshot_submitted_b64}"
+                "success": False,
+                "error": f"Lỗi điền form: {str(e)}",
+                "screenshot_filled": f"data:image/png;base64,{err_b64}",
+                "screenshot_submitted": ""
             }
-            
-        except Exception as e:
-            print(f"Error filling form for {guest_name}: {e}")
-            try:
-                err_bytes = await page.screenshot(type="png")
-                err_b64 = base64.b64encode(err_bytes).decode('utf-8')
-                return {
-                    "success": False,
-                    "error": f"Lỗi điền form: {str(e)}",
-                    "screenshot_filled": f"data:image/png;base64,{err_b64}",
-                    "screenshot_submitted": ""
-                }
-            except Exception:
-                return {"success": False, "error": f"Lỗi điền form: {str(e)}"}
-        finally:
-            # Only close context (pages inside it are closed automatically)
-            await context.close()
+        except Exception:
+            return {"success": False, "error": f"Lỗi điền form: {str(e)}"}
+    finally:
+        # Only close context (pages inside it are closed automatically)
+        await context.close()
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
