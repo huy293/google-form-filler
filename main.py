@@ -387,9 +387,11 @@ async def fill_form_playwright(data: SubmitRequest):
         await asyncio.sleep(0.05)
         
         # Settle and take first screenshot (filled form as compressed JPEG)
-        log_step("7. Capturing filled form screenshot...")
-        await page.evaluate("window.scrollTo(0, 0);")
-        await asyncio.sleep(0.1)
+        log_step("7. Capturing filled form screenshot (scrolled to passport)...")
+        passport_container = page.locator('div[data-params*="1388064463"]')
+        if await passport_container.count() > 0:
+            await passport_container.first.scroll_into_view_if_needed()
+        await asyncio.sleep(0.2)
         filled_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
