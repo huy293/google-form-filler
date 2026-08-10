@@ -34,7 +34,7 @@ ADDRESSES = [
 
 NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh", "Nhật Bản", "Đài Loan", "Trung Quốc"]
 
-submit_lock = asyncio.Lock()
+submit_lock = None
 
 # Global browser singleton for speed and low RAM usage on Render
 GLOBAL_PLAYWRIGHT = None
@@ -281,28 +281,31 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    browser = await get_browser()
-
-    # Create a new isolated context for this request (with auto-healing fallback and custom mobile viewport)
-    try:
-        context = await browser.new_context(
-            viewport={"width": 393, "height": 851},
-            is_mobile=True,
-            has_touch=True
-        )
-    except Exception as e:
-        print(f"Failed to create context: {e}. Force relaunching browser singleton...")
-        await force_relaunch_browser()
-        browser = await get_browser()
-        context = await browser.new_context(
-            viewport={"width": 393, "height": 851},
-            is_mobile=True,
-            has_touch=True
-        )
-        
-    page = await context.new_page()
+    context = None
+    page = None
     
     try:
+        browser = await get_browser()
+
+        # Create a new isolated context for this request (with auto-healing fallback and custom mobile viewport)
+        try:
+            context = await browser.new_context(
+                viewport={"width": 393, "height": 851},
+                is_mobile=True,
+                has_touch=True
+            )
+        except Exception as e:
+            print(f"Failed to create context: {e}. Force relaunching browser singleton...")
+            await force_relaunch_browser()
+            browser = await get_browser()
+            context = await browser.new_context(
+                viewport={"width": 393, "height": 851},
+                is_mobile=True,
+                has_touch=True
+            )
+            
+        page = await context.new_page()
+        
         global RUNNING_LOGS
         RUNNING_LOGS = []
         
@@ -460,12 +463,16 @@ async def fill_form_playwright(data: SubmitRequest):
     finally:
         # Only close context (pages inside it are closed automatically)
         try:
-            await context.close()
+            if context:
+                await context.close()
         except Exception:
             pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
+    global submit_lock
+    if submit_lock is None:
+        submit_lock = asyncio.Lock()
     async with submit_lock:
         result = await fill_form_playwright(request)
         return result
