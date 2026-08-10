@@ -355,7 +355,7 @@
 
         .screenshot-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 12px;
         }
 
@@ -671,7 +671,7 @@
                         badge.className = "status-badge status-success";
                         
                         // Add screenshots to results section
-                        appendResultBox(result.guestName, guest.guestId, result.screenshot_filled, result.screenshot_submitted);
+                        appendResultBox(result.guestName, guest.guestId, result.screenshot_filled, result.screenshot_submitted, result.screenshot_full);
                     } else {
                         badge.textContent = "Thất bại";
                         badge.className = "status-badge status-error";
@@ -692,7 +692,7 @@
         }
 
         // Add result details box
-        function appendResultBox(name, passport, imgFilled, imgSubmitted) {
+        function appendResultBox(name, passport, imgFilled, imgSubmitted, imgFull) {
             document.getElementById('resultsSection').style.display = 'block';
             const container = document.getElementById('resultsContainer');
             
@@ -704,6 +704,21 @@
             // Save to global list for batch download
             allImages.push({ data: imgFilled, filename: `DienForm_${sanitizedName}.jpg` });
             allImages.push({ data: imgSubmitted, filename: `XacNhan_${sanitizedName}.jpg` });
+            if (imgFull) {
+                allImages.push({ data: imgFull, filename: `FullForm_${sanitizedName}.jpg` });
+            }
+            
+            let fullHtml = "";
+            if (imgFull) {
+                fullHtml = `
+                    <div class="screenshot-item">
+                        <p>3. Ảnh toàn bộ trang điền</p>
+                        <div class="screenshot-img-wrapper">
+                            <img class="screenshot-img" src="${imgFull}" alt="Ảnh toàn bộ" onclick="openModal(this.src)">
+                        </div>
+                    </div>
+                `;
+            }
             
             box.innerHTML = `
                 <div class="guest-result-header">
@@ -723,6 +738,7 @@
                             <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi" onclick="openModal(this.src)">
                         </div>
                     </div>
+                    ${fullHtml}
                 </div>
             `;
             container.appendChild(box);
