@@ -52,7 +52,11 @@ async def lifespan(app: FastAPI):
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
-            "--disable-gpu"
+            "--disable-gpu",
+            "--single-process",
+            "--js-flags=--max-old-space-size=128",
+            "--disable-extensions",
+            "--disable-default-apps"
         ]
         
     # Platform-conditional headless: True on Linux/Render, False on Windows/Local
