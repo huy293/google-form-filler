@@ -403,7 +403,15 @@ async def fill_form_playwright(data: SubmitRequest):
         
         # Wait for confirmation message wrapper or "Submit another response" link
         log_step("9. Waiting for confirmation page element...")
-        await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
+        try:
+            await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=4000)
+        except Exception:
+            # Check if there are any error alert indicators on the form
+            err_count = await page.locator('div[role="alert"], .iv77ob').count()
+            if err_count > 0:
+                raise Exception("Sai định dạng Mã Căn Hộ hoặc thông tin nhập vào bị Google Form từ chối (Vui lòng điền đúng mẫu A-12.34)")
+            else:
+                raise Exception("Không nhận được trang xác nhận gửi thành công từ Google Form (Hết thời gian chờ)")
         await asyncio.sleep(0.1)
         
         # Take submitted screenshot (as compressed JPEG)
@@ -424,10 +432,19 @@ async def fill_form_playwright(data: SubmitRequest):
         err_msg = f"Error: {str(e)}"
         log_step(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
+        # Capture current page screenshot (showing the red validation error highlights) to return to UI
+        try:
+            # Scroll to top/bottom of form to capture the red error highlights clearly
+            await page.evaluate("window.scrollTo(0, 0);")
+            await asyncio.sleep(0.1)
+            err_bytes = await page.screenshot(type="jpeg", quality=50)
+            err_b64 = base64.b64encode(err_bytes).decode('utf-8')
+        except Exception:
+            err_b64 = ""
         return {
             "success": False,
             "error": f"Lỗi điền form: {str(e)}",
-            "screenshot_filled": "",
+            "screenshot_filled": f"data:image/jpeg;base64,{err_b64}" if err_b64 else "",
             "screenshot_submitted": ""
         }
     finally:
