@@ -89,36 +89,90 @@ async def get_browser():
         
     return GLOBAL_BROWSER
 
-async def create_new_page():
+async def get_page():
+    global GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
     browser = await get_browser()
-    context = await browser.new_context(
-        viewport={"width": 393, "height": 851},
-        is_mobile=True,
-        has_touch=True
-    )
-    page = await context.new_page()
-    # Block analytics and tracker scripts to optimize speed and CPU RAM
-    await page.route("**/*", lambda route: 
-        route.abort() if any(domain in route.request.url for domain in [
-            "google-analytics.com", "googletagmanager.com", "analytics", 
-            "collect?", "doubleclick.net", "googleadservices.com"
-        ]) else route.continue_()
-    )
-    return context, page
+    
+    is_page_broken = False
+    if GLOBAL_PAGE is not None:
+        try:
+            # Test if page is responsive
+            await GLOBAL_PAGE.title()
+        except Exception:
+            is_page_broken = True
+            
+    if GLOBAL_PAGE is None or is_page_broken:
+        print("Initializing new global page and pre-loading Google Form...")
+        if GLOBAL_CONTEXT:
+            try:
+                await GLOBAL_CONTEXT.close()
+            except Exception:
+                pass
+        GLOBAL_CONTEXT = await browser.new_context(
+            viewport={"width": 393, "height": 851},
+            is_mobile=True,
+            has_touch=True
+        )
+        GLOBAL_PAGE = await GLOBAL_CONTEXT.new_page()
+        # Block analytics and tracker scripts to optimize speed and CPU RAM
+        await GLOBAL_PAGE.route("**/*", lambda route: 
+            route.abort() if any(domain in route.request.url for domain in [
+                "google-analytics.com", "googletagmanager.com", "analytics", 
+                "collect?", "doubleclick.net", "googleadservices.com"
+            ]) else route.continue_()
+        )
+        await GLOBAL_PAGE.goto(FORM_URL, wait_until="load", timeout=25000)
+        
+    return GLOBAL_PAGE
+
+async def prepare_clean_form(page):
+    try:
+        # 1. Check if we are on confirmation screen (Submit another response link is visible)
+        link = page.locator('a[href*="viewform"]').first
+        if await link.count() > 0 and await link.is_visible():
+            print("Confirmation screen detected. Resetting via link...")
+            await link.click()
+            await page.locator('form').first.wait_for(state="visible", timeout=6000)
+            return True
+            
+        # 2. Form screen detected. Clear inputs locally via JS to avoid network reloads
+        print("Form screen detected. Resetting inputs locally via DOM JS...")
+        await page.evaluate("""() => {
+            document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+                el.value = '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            document.querySelectorAll('div[role="checkbox"], div[role="radio"]').forEach(el => {
+                if (el.getAttribute('aria-checked') === 'true') {
+                    el.click();
+                }
+            });
+        }""")
+        return True
+    except Exception as e:
+        print(f"Failed to reset/clean form: {e}. Reloading page as fallback...")
+        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+        return False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm browser process on startup
+    # Pre-warm browser and pre-load page on startup
     try:
-        await get_browser()
-        print("Lifespan: Global browser pre-warmed successfully!")
+        await get_page()
+        print("Lifespan: Global page pre-loaded successfully!")
     except Exception as e:
-        print(f"Error pre-warming browser during lifespan: {e}")
+        print(f"Error pre-warming page during lifespan: {e}")
         
     yield
     
     # Shutdown logic
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
+    if GLOBAL_CONTEXT:
+        try:
+            await GLOBAL_CONTEXT.close()
+        except Exception:
+            pass
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
         try:
@@ -289,17 +343,14 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    context = None
-    page = None
     try:
-        # Create fresh page and context
-        context, page = await create_new_page()
+        page = await get_page()
         
         global RUNNING_LOGS
         RUNNING_LOGS = []
         
         log_step("1. Preparing form page...")
-        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+        await prepare_clean_form(page)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
         log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
@@ -444,16 +495,7 @@ async def fill_form_playwright(data: SubmitRequest):
             "screenshot_submitted": ""
         }
     finally:
-        if page:
-            try:
-                await page.close()
-            except Exception:
-                pass
-        if context:
-            try:
-                await context.close()
-            except Exception:
-                pass
+        pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
