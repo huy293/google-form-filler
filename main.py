@@ -1,65 +1,42 @@
 import os
 import io
-import csv
 import sys
-import requests
-import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+import base64
+import random
+import asyncio
+from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import Optional
+from playwright.async_api import async_playwright
 
-# Set output encoding to support Vietnamese logging
+# Configure console to support Vietnamese output
 sys.stdout.reconfigure(encoding='utf-8')
 
 app = FastAPI(title="Google Form Auto-Filler Web API")
 
-# Google Form Config
-FORM_POST_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/formResponse"
+# Lists of names and addresses for realistic randomization
+REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
+REP_FEMALE_NAMES = ["Nguyễn Thị Mai", "Trần Thu Trang", "Lê Linh Chi", "Phạm Hải Yến", "Nguyễn Khánh An", "Trần Mỹ Linh", "Đỗ Vân Anh", "Vũ Phương Thảo", "Lê Mai Hương", "Phạm Quỳnh Chi"]
 
-FIELD_MAPPING = {
-    "Họ và tên người đăng ký": "entry.178418221",
-    "Số điện thoại người đăng ký": "entry.2093418625",
-    "Họ và tên khách": "entry.955098140",
-    "Năm sinh": "entry.870248713",
-    "Mã Căn Hộ": "entry.175253502",
-    "Hộ Chiếu_CCCD": "entry.1388064463",
-    "VISA": "entry.2009586042",
-    "Hạn VISA": "entry.1149566062",
-    "Quốc tịch": "entry.1515902134",
-    "Thông tin hộ khẩu": "entry.2023500619",
-    "Chủ thể": "entry.117977297",
-    "Ngày đến": "entry.1707290555",
-    "Thời gian vào": "entry.1773051864",
-    "Ngày ra": "entry.1028902383",
-    "Cam kết tuân thủ": "entry.1651751105"
-}
+GUEST_MALE_NAMES = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Nguyễn Văn Nam", "Trần Hoàng Bách", "Lê Tuấn Kiệt"]
+GUEST_FEMALE_NAMES = ["Agne", "Amada", "Mary", "Anna", "Linda", "Elizabeth", "Sarah", "Jessica", "Karen", "Lisa", "Helen", "Sandra", "Emily", "Trần Thu Thảo", "Nguyễn Mai Anh", "Lê Vy"]
 
-class GuestSubmission(BaseModel):
-    Họ_và_tên_người_đăng_ký: Optional[str] = None
-    Số_điện_thoại_người_đăng_ký: Optional[str] = None
-    Họ_và_tên_khách: Optional[str] = None
-    Năm_sinh: Optional[str] = None
-    Mã_Căn_Hộ: Optional[str] = None
-    Hộ_Chiếu_CCCD: Optional[str] = None
-    VISA: Optional[str] = ""
-    Hạn_VISA: Optional[str] = ""
-    Quốc_tịch: Optional[str] = None
-    Thông_tin_hộ_khẩu: Optional[str] = None
-    Chủ_thể: Optional[str] = None
-    Ngày_đến: Optional[str] = None
-    Thời_gian_vào: Optional[str] = None
-    Ngày_ra: Optional[str] = None
-    Cam_kết_tuân_thủ: Optional[str] = "Tôi đã đọc và đồng ý"
+ADDRESSES = [
+    "123 Nguyễn Trãi, Quận 5, TP.HCM",
+    "456 Lê Lợi, Quận 1, TP.HCM",
+    "789 Cách Mạng Tháng 8, Quận 3, TP.HCM",
+    "101 Trần Hưng Đạo, Quận 1, TP.HCM",
+    "Rivergate Residence, Quận 4, TP.HCM",
+    "202 Bến Vân Đồn, Quận 4, TP.HCM",
+    "15 Hoàng Diệu, Quận 4, TP.HCM",
+    "368 Nguyễn Thị Minh Khai, Quận 3, TP.HCM"
+]
 
-    # Support dictionary indexing for compatibility with CSV row parsing
-    def __getitem__(self, item):
-        # Allow accessing with original Vietnamese keys
-        normalized_key = item.replace(" ", "_")
-        return getattr(self, normalized_key, None)
+NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh", "Nhật Bản", "Đài Loan", "Trung Quốc"]
 
-# Serve Frontend static index page
+submit_lock = asyncio.Lock()
+
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
     index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
@@ -68,84 +45,217 @@ async def get_index():
             return f.read()
     return "<h3>Error: static/index.html not found!</h3>"
 
-# Handle submission request
-@app.post("/api/submit")
-async def submit_to_google_form(data: dict):
-    payload = {}
-    
-    # Map the received keys to entry.XXXX IDs
-    for key, entry_id in FIELD_MAPPING.items():
-        val = data.get(key, "")
-        payload[entry_id] = str(val).strip() if val is not None else ""
-        
-    # Ensure agreement is checkmarked
-    if not payload.get("entry.1651751105"):
-        payload["entry.1651751105"] = "Tôi đã đọc và đồng ý"
-        
-    guest_name = data.get("Họ và tên khách", "Khách")
-    print(f"Submitting for guest: {guest_name}")
-    
-    try:
-        # Submit payload via HTTP POST to Google Forms
-        response = requests.post(FORM_POST_URL, data=payload, timeout=10)
-        
-        if response.status_code == 200:
-            # Check for typical submission success indicator
-            if "đã được ghi lại" in response.text or "has been recorded" in response.text or "RIVERGATE" in response.text:
-                return {"success": True, "message": f"Đã gửi thông tin cho {guest_name} thành công!"}
-            else:
-                return {"success": False, "error": "Google Form trả về trang không xác định."}
-        else:
-            return {"success": False, "error": f"Lỗi phản hồi từ Google Forms: Code {response.status_code}"}
-            
-    except requests.exceptions.RequestException as e:
-        print(f"Network error while sending request to Google Form: {e}")
-        return {"success": False, "error": f"Lỗi mạng khi kết nối Google Forms: {str(e)}"}
+class SubmitRequest(BaseModel):
+    unitCode: str
+    guestId: str
+    gender: str
 
-# Parse bulk Excel/CSV file upload
-@app.post("/api/upload")
-async def upload_guest_list(file: UploadFile = File(...)):
-    filename = file.filename
-    content = await file.read()
+async def fill_form_playwright(data: SubmitRequest):
+    # 1. Generate random values
+    rep_gender = random.choice(["male", "female"])
+    rep_name = random.choice(REP_MALE_NAMES) if rep_gender == "male" else random.choice(REP_FEMALE_NAMES)
     
-    guests = []
+    phone_prefix = random.choice(["09", "03", "07", "08", "05"])
+    phone_suffix = "".join(random.choice("0123456789") for _ in range(8))
+    rep_phone = phone_prefix + phone_suffix
     
-    try:
-        if filename.endswith(".xlsx"):
-            # Parse Excel using Pandas
-            df = pd.read_excel(io.BytesIO(content))
-            df = df.fillna("")
-            # Strip key names and convert to dictionary records
-            records = df.to_dict('records')
-            for rec in records:
-                cleaned_rec = {str(k).strip(): str(v).strip() for k, v in rec.items()}
-                guests.append(cleaned_rec)
-                
-        elif filename.endswith(".csv"):
-            # Parse CSV
-            # Try to decode content (with BOM check)
-            try:
-                decoded_content = content.decode('utf-8-sig')
-            except UnicodeDecodeError:
-                decoded_content = content.decode('latin-1')
-                
-            csv_reader = csv.DictReader(io.StringIO(decoded_content))
-            for row in csv_reader:
-                cleaned_row = {str(k).strip(): str(v).strip() for k, v in row.items() if k}
-                guests.append(cleaned_row)
-        else:
-            return {"success": False, "error": "Định dạng tệp không được hỗ trợ. Vui lòng tải lên tệp .xlsx hoặc .csv"}
-            
-        print(f"Parsed {len(guests)} guests from uploaded file: {filename}")
-        return {"success": True, "guests": guests}
+    gender = data.gender.lower()
+    guest_name = random.choice(GUEST_MALE_NAMES) if gender == "male" else random.choice(GUEST_FEMALE_NAMES)
+    
+    birth_year = random.randint(1960, 2010)
+    
+    # Check if guest name is foreign
+    is_foreign = guest_name in GUEST_MALE_NAMES[:13] or guest_name in GUEST_FEMALE_NAMES[:13]
+    if is_foreign:
+        nation = random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc"])
+    else:
+        nation = "Việt Nam"
         
-    except Exception as e:
-        print(f"Error parsing file {filename}: {e}")
-        return {"success": False, "error": f"Không thể đọc cấu trúc tệp dữ liệu: {str(e)}"}
+    visa_letter = random.choice(["V", "DL", "EV"])
+    visa_number = "".join(random.choice("0123456789") for _ in range(7))
+    visa = visa_letter + visa_number
+    
+    # Dates
+    today = datetime.now()
+    check_in_date = today.strftime("%Y-%m-%d")
+    
+    # Check-in time + 30 mins
+    time_in = today + timedelta(minutes=30)
+    check_in_time = time_in.strftime("%H:%M")
+    
+    # Check-out date + 1 to 3 days
+    checkout_days = random.randint(1, 3)
+    check_out_date = (today + timedelta(days=checkout_days)).strftime("%Y-%m-%d")
+    
+    # Visa Expiry
+    visa_exp_date = (today + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
+    
+    address = random.choice(ADDRESSES)
+    
+    # Pack row data
+    row_data = {
+        "Họ và tên người đăng ký": rep_name,
+        "Số điện thoại người đăng ký": rep_phone,
+        "Họ và tên khách": guest_name,
+        "Năm sinh": str(birth_year),
+        "Mã Căn Hộ": data.unitCode,
+        "Hộ Chiếu_CCCD": data.guestId,
+        "VISA": visa,
+        "Hạn VISA": visa_exp_date,
+        "Quốc tịch": nation,
+        "Thông tin hộ khẩu": address,
+        "Chủ thể": "Khách đến thăm/ Visitors",
+        "Ngày đến": check_in_date,
+        "Thời gian vào": check_in_time,
+        "Ngày ra": check_out_date,
+        "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
+    }
+    
+    # Launch playwright
+    async with async_playwright() as p:
+        # Optimized launch args for 512MB RAM Render Free Plan
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                "--single-process",
+                "--no-zygote",
+                "--disable-setuid-sandbox"
+            ]
+        )
+        context = await browser.new_context(
+            viewport={"width": 375, "height": 812}, # Mobile Viewport
+            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+        )
+        page = await context.new_page()
+        
+        try:
+            # Go to form
+            print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
+            await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="networkidle", timeout=25000)
+            
+            # 1. Fill basic text fields
+            fields_to_fill = {
+                "Họ và tên người đăng ký": "178418221",
+                "Số điện thoại người đăng ký": "2093418625",
+                "Họ và tên khách": "955098140",
+                "Năm sinh": "870248713",
+                "Mã Căn Hộ": "175253502",
+                "Hộ Chiếu_CCCD": "1388064463",
+                "VISA": "2009586042",
+                "Quốc tịch": "1515902134",
+                "Thông tin hộ khẩu": "2023500619"
+            }
+            
+            for label, entry_id in fields_to_fill.items():
+                val = row_data[label]
+                container = page.locator(f'div[data-params*="{entry_id}"]')
+                input_el = container.locator('input[type="text"], textarea')
+                await input_el.first.fill(str(val))
+                await asyncio.sleep(0.05)
+                
+            # Dropdown: Chủ thể - 117977297
+            container = page.locator('div[data-params*="117977297"]')
+            await container.locator('div[role="listbox"]').first.click()
+            await asyncio.sleep(0.2)
+            option = page.locator('div[role="option"]').filter(has_text="Khách đến thăm").first
+            await option.click()
+            await asyncio.sleep(0.1)
+            
+            # Dates and Times
+            date_fields = {
+                "Ngày đến": "1707290555",
+                "Ngày ra": "1028902383",
+                "Hạn VISA": "1149566062"
+            }
+            
+            for label, entry_id in date_fields.items():
+                val = row_data[label] # YYYY-MM-DD
+                parts = val.split('-')
+                if len(parts) == 3:
+                    year, month, day = parts[0], parts[1], parts[2]
+                    container = page.locator(f'div[data-params*="{entry_id}"]')
+                    
+                    day_input = container.locator('input[aria-label="Ngày"], input[aria-label="Day"]')
+                    month_input = container.locator('input[aria-label="Tháng"], input[aria-label="Month"]')
+                    year_input = container.locator('input[aria-label="Năm"], input[aria-label="Year"]')
+                    
+                    await day_input.fill(day)
+                    await month_input.fill(month)
+                    await year_input.fill(year)
+                    await asyncio.sleep(0.05)
+                    
+            # Time: Thời gian vào - 1773051864 (HH:MM)
+            time_val = row_data["Thời gian vào"]
+            time_parts = time_val.split(':')
+            if len(time_parts) == 2:
+                hour, minute = time_parts[0], time_parts[1]
+                container = page.locator('div[data-params*="1773051864"]')
+                hour_input = container.locator('input[aria-label="Giờ"], input[aria-label="Hour"]')
+                minute_input = container.locator('input[aria-label="Phút"], input[aria-label="Minute"]')
+                await hour_input.fill(hour)
+                await minute_input.fill(minute)
+                await asyncio.sleep(0.05)
+                
+            # Agreement checkbox: Cam kết tuân thủ - 1651751105
+            container = page.locator('div[data-params*="1651751105"]')
+            checkbox = container.locator('div[role="checkbox"], div[role="radio"], span:has-text("Tôi đã đọc và đồng ý")').first
+            await checkbox.click()
+            await asyncio.sleep(0.2)
+            
+            # Settle and take first screenshot (filled form)
+            await page.evaluate("window.scrollTo(0, 0);")
+            await asyncio.sleep(0.3)
+            filled_bytes = await page.screenshot(type="png", full_page=True)
+            screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
+            
+            # Click submit
+            submit_btn = page.locator('div[role="button"]:has-text("Gửi"), div[role="button"]:has-text("Submit")').first
+            await submit_btn.click()
+            
+            # Wait for confirmation page
+            await page.wait_for_load_state("networkidle", timeout=12000)
+            await asyncio.sleep(1.0)
+            
+            # Take submitted screenshot
+            submitted_bytes = await page.screenshot(type="png", full_page=False)
+            screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
+            
+            print(f"Successfully submitted and captured screenshots for {guest_name}!")
+            return {
+                "success": True,
+                "guestName": guest_name,
+                "screenshot_filled": f"data:image/png;base64,{screenshot_filled_b64}",
+                "screenshot_submitted": f"data:image/png;base64,{screenshot_submitted_b64}"
+            }
+            
+        except Exception as e:
+            print(f"Error filling form for {guest_name}: {e}")
+            try:
+                err_bytes = await page.screenshot(type="png")
+                err_b64 = base64.b64encode(err_bytes).decode('utf-8')
+                return {
+                    "success": False,
+                    "error": f"Lỗi điền form: {str(e)}",
+                    "screenshot_filled": f"data:image/png;base64,{err_b64}",
+                    "screenshot_submitted": ""
+                }
+            except Exception:
+                return {"success": False, "error": f"Lỗi điền form: {str(e)}"}
+        finally:
+            await context.close()
+            await browser.close()
+
+@app.post("/api/submit")
+async def submit_to_google_form(request: SubmitRequest):
+    async with submit_lock:
+        result = await fill_form_playwright(request)
+        return result
 
 if __name__ == "__main__":
     import uvicorn
-    # Render binds the port using the PORT env variable
     port = int(os.environ.get("PORT", 8080))
     print(f"Khởi chạy Server tại cổng {port}...")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

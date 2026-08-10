@@ -3,27 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Form Auto-Filler (Web Mobile)</title>
-    <!-- Premium Google Fonts -->
+    <title>RIVERGATE RESIDENCE - Đăng Ký Sảnh</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- html2canvas for browser-side screenshots -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.41.0/html2canvas.min.js"></script>
     <style>
         :root {
             --primary: #6c5ce7;
-            --primary-hover: #5b4bc4;
             --primary-light: rgba(108, 92, 231, 0.15);
-            --bg-gradient: linear-gradient(135deg, #0f0c1b 0%, #15102a 50%, #06020f 100%);
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.06);
-            --glass-focus-border: rgba(108, 92, 231, 0.4);
-            --text: #f7fafc;
-            --text-muted: #a0aec0;
+            --primary-glow: rgba(108, 92, 231, 0.4);
+            --bg-dark: #090714;
+            --card-bg: rgba(20, 16, 38, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-light: #f3f0ff;
+            --text-muted: #a29bfe;
             --success: #00b894;
+            --success-light: rgba(0, 184, 148, 0.15);
             --error: #ff7675;
-            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --error-light: rgba(255, 118, 117, 0.15);
         }
 
         * {
@@ -35,545 +32,365 @@
         }
 
         body {
-            background: var(--bg-gradient);
-            background-attachment: fixed;
-            color: var(--text);
+            background: radial-gradient(circle at 50% 0%, #1e1545 0%, var(--bg-dark) 70%);
+            color: var(--text-light);
             min-height: 100vh;
+            padding: 20px 10px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 15px;
+            justify-content: center;
+            align-items: flex-start;
         }
 
         .container {
             width: 100%;
-            max-width: 550px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
         header {
             text-align: center;
-            margin-bottom: 5px;
-            margin-top: 10px;
+            margin-bottom: 25px;
+            padding-top: 10px;
         }
 
         header h1 {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
-            background: linear-gradient(to right, #a55eea, #45aaf2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 15px var(--primary-glow);
             margin-bottom: 6px;
-            letter-spacing: 0.5px;
         }
 
         header p {
             font-size: 13px;
             color: var(--text-muted);
+            letter-spacing: 0.5px;
         }
 
-        /* Glassmorphism Navigation Tab */
-        .tabs {
-            display: flex;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            padding: 5px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-
-        .tab-btn {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 10px 15px;
-            font-size: 14px;
-            font-weight: 500;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
-        }
-
-        /* Glassmorphism Card Wrapper */
         .card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 20px;
             padding: 22px;
-            box-shadow: var(--card-shadow);
-            display: none;
-            animation: fadeIn 0.4s ease;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+            margin-bottom: 20px;
         }
 
-        .card.active {
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
             display: block;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
         }
 
-        @keyframes fadeIn {
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        /* Red glow for mandatory empty inputs */
+        .form-control:required:invalid {
+            border-color: rgba(255, 118, 117, 0.4);
+        }
+
+        .guest-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .guest-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        /* Styled Guest Row */
+        .guest-row {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 16px;
+            position: relative;
+            animation: slideIn 0.25s ease;
+        }
+
+        @keyframes slideIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        h2 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 18px;
-            border-bottom: 1px solid var(--glass-border);
-            padding-bottom: 10px;
-            color: #d1d8e0;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        input[type="text"],
-        input[type="tel"],
-        input[type="date"],
-        input[type="time"],
-        select {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--glass-border);
-            color: var(--text);
-            padding: 12px 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-            transition: all 0.3s;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--primary);
-            background: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 0 3px var(--primary-light);
-        }
-
-        /* Color of date/time icons in dark mode */
-        input::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            opacity: 0.6;
-            cursor: pointer;
-        }
-
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .checkbox-container input {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--primary);
-            cursor: pointer;
-        }
-
-        .btn-submit {
-            width: 100%;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-        }
-
-        .btn-submit:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-submit:active {
-            transform: translateY(1px);
-        }
-
-        .btn-submit:disabled {
-            background: #4b4b5e;
-            color: var(--text-muted);
-            box-shadow: none;
-            cursor: not-allowed;
-        }
-
-        /* Uploader UI styling */
-        .upload-area {
-            border: 2px dashed var(--glass-border);
-            border-radius: 15px;
-            padding: 30px 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 20px;
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .upload-area:hover {
-            border-color: var(--primary);
-            background: rgba(108, 92, 231, 0.03);
-        }
-
-        .upload-area svg {
-            width: 40px;
-            height: 40px;
-            fill: var(--text-muted);
-            margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-
-        .upload-area:hover svg {
-            fill: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .upload-area p {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        .upload-area span {
-            font-size: 12px;
-            color: #7f8c8d;
-            display: block;
-            margin-top: 5px;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        /* Progress Bar & Loader */
-        .progress-container {
-            display: none;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 15px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .progress-label {
+        .guest-row-header {
             display: flex;
             justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-
-        .progress-bar-bg {
-            height: 8px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(to right, #a55eea, var(--primary));
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-
-        /* Result display table */
-        .guest-list-table {
-            width: 100%;
-            margin-top: 15px;
-            border-collapse: collapse;
-            font-size: 13px;
-            max-height: 250px;
-            overflow-y: auto;
-            display: block;
-        }
-
-        .guest-list-table thead, .guest-list-table tbody {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        .guest-list-table th, .guest-list-table td {
-            padding: 10px 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .guest-list-table th {
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        .status-pending { background: rgba(241, 196, 15, 0.15); color: #f1c40f; }
-        .status-success { background: rgba(0, 184, 148, 0.15); color: var(--success); }
-        .status-error { background: rgba(255, 118, 117, 0.15); color: var(--error); }
-
-        /* Notification overlay */
-        .notification {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000;
-            display: flex;
             align-items: center;
-            gap: 10px;
-            max-width: 90%;
-            text-align: center;
+            margin-bottom: 12px;
         }
 
-        .notification.show {
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .notification.success {
-            background: #00b894;
-            color: white;
-        }
-
-        .notification.error {
-            background: #ff7675;
-            color: white;
-        }
-
-        /* File name indicator */
-        .file-selected {
-            background: var(--primary-light);
-            border: 1px solid rgba(108, 92, 231, 0.3);
-            border-radius: 10px;
-            padding: 10px 15px;
-            display: none;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .file-selected span {
+        .guest-number {
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
+            color: #fff;
         }
 
-        .btn-clear-file {
+        .btn-delete-guest {
             background: transparent;
             border: none;
             color: var(--error);
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
+            padding: 2px 6px;
+            transition: opacity 0.2s;
         }
 
-        /* Modal Overlay */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
+        .btn-delete-guest:hover {
+            opacity: 0.8;
+        }
+
+        .guest-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+        }
+
+        /* Styled select */
+        select.form-control {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 18px;
+            padding-right: 30px;
+        }
+
+        /* Button to add new guest row */
+        .btn-add-guest {
             width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 15px;
-            animation: modalFadeIn 0.3s ease;
-        }
-
-        .modal-overlay.show {
-            display: flex;
-        }
-
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Beautiful Ticket Receipt */
-        .receipt-card {
-            background: linear-gradient(135deg, #181530 0%, #0d0a1f 100%);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 360px;
-            padding: 22px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-            position: relative;
-        }
-
-        /* Dotted separator line to look like a physical ticket */
-        .receipt-divider {
-            border-top: 2px dashed rgba(255, 255, 255, 0.12);
-            margin: 18px 0;
-            position: relative;
-        }
-
-        .receipt-divider::before,
-        .receipt-divider::after {
-            content: '';
-            position: absolute;
-            top: -10px;
-            width: 20px;
-            height: 20px;
-            background: #06020f; /* Match outer body gradient dark background */
-            border-radius: 50%;
-        }
-
-        .receipt-divider::before { left: -33px; }
-        .receipt-divider::after { right: -33px; }
-
-        .receipt-header {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .receipt-success-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(0, 184, 148, 0.15);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 10px;
-            border: 1px solid var(--success);
-        }
-
-        .receipt-success-icon svg {
-            width: 26px;
-            height: 26px;
-            fill: var(--success);
-        }
-
-        .receipt-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 1px;
-            margin-bottom: 2px;
-        }
-
-        .receipt-subtitle {
-            font-size: 10px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .receipt-body {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .receipt-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-
-        .receipt-label {
-            color: var(--text-muted);
-        }
-
-        .receipt-value {
-            color: #fff;
-            font-weight: 500;
-            text-align: right;
-            max-width: 60%;
-            word-break: break-word;
-        }
-
-        .receipt-footer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 10px;
-            color: var(--text-muted);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 12px;
-        }
-
-        /* Buttons on Modal */
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-        }
-
-        .btn-modal {
-            flex: 1;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed var(--card-border);
+            border-radius: 12px;
             padding: 12px;
-            border-radius: 10px;
+            color: var(--text-muted);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 20px;
+        }
+
+        .btn-add-guest:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        /* Submit action button */
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);
             border: none;
-            transition: all 0.2s;
+            border-radius: 14px;
+            padding: 16px;
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 20px var(--primary-glow);
+            transition: all 0.2s ease;
             text-align: center;
         }
 
-        .btn-modal-download {
-            background: var(--success);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 184, 148, 0.3);
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--primary);
         }
 
-        .btn-modal-close {
+        .btn-submit:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.3);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress list */
+        .status-tracker {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
             background: rgba(255, 255, 255, 0.08);
             color: #fff;
-            border: 1px solid var(--glass-border);
         }
 
-        .btn-modal-download:hover { background: #009475; }
-        .btn-modal-close:hover { background: rgba(255, 255, 255, 0.12); }
+        .status-running {
+            background: var(--primary-light);
+            color: var(--text-muted);
+            animation: blink 1.2s infinite;
+        }
+
+        .status-success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .status-error {
+            background: var(--error-light);
+            color: var(--error);
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.6; }
+        }
+
+        /* Results / Screenshots Container */
+        .results-section {
+            margin-top: 25px;
+            display: none;
+        }
+
+        .results-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary);
+            padding-left: 10px;
+        }
+
+        .guest-result-box {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 16px;
+            margin-bottom: 18px;
+        }
+
+        .guest-result-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .screenshot-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .screenshot-item {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .screenshot-item p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .screenshot-img-wrapper {
+            position: relative;
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #000;
+        }
+
+        .screenshot-img {
+            width: 100%;
+            display: block;
+            height: auto;
+        }
+
+        .btn-download-img {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .btn-download-img:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
 
     </style>
 </head>
@@ -581,523 +398,173 @@
     <div class="container">
         <header>
             <h1>RIVERGATE RESIDENCE</h1>
-            <p>Tự động điền và gửi thông tin sảnh nhanh chóng</p>
+            <p>Đăng ký sảnh tự động & xuất ảnh minh chứng</p>
         </header>
 
-        <!-- Dynamic Tabs -->
-        <nav class="tabs">
-            <button class="tab-btn active" onclick="switchTab('single')">Nhập Một Khách</button>
-            <button class="tab-btn" onclick="switchTab('bulk')">Gửi Hàng Loạt</button>
-        </nav>
-
-        <!-- Card: Single Guest Input -->
-        <section id="singleCard" class="card active">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
-                <h2 style="margin-bottom: 0; border: none; padding: 0; font-size: 17px;">Đăng ký thông tin khách</h2>
-                <button type="button" class="tab-btn" style="flex: none; padding: 6px 12px; font-size: 12px; background: var(--primary-light); border: 1px solid var(--primary); width: auto;" onclick="triggerRandomize()">Tạo ngẫu nhiên</button>
-            </div>
-            <form id="singleForm" onsubmit="handleSingleSubmit(event)">
+        <main class="card">
+            <form id="submissionForm" onsubmit="handleFormSubmit(event)">
+                <!-- Global Apartment Code -->
                 <div class="form-group">
-                    <label>Người Đăng Ký (Full Name) - Ngẫu nhiên</label>
-                    <input type="text" id="regName" required placeholder="Tên người đại diện đăng ký">
-                </div>
-                <div class="form-group">
-                    <label>Số ĐT Người Đăng Ký (Phone) - Ngẫu nhiên</label>
-                    <input type="tel" id="regPhone" required placeholder="Số điện thoại người đại diện">
-                </div>
-                
-                <div style="border-top: 1px dashed var(--glass-border); margin: 20px 0;"></div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Giới Tính Khách</label>
-                        <select id="guestGender" onchange="onGenderChange()">
-                            <option value="female" selected>Nữ (Female)</option>
-                            <option value="male">Nam (Male)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Họ Tên Khách (Guest Name)</label>
-                        <input type="text" id="guestName" required placeholder="Họ tên khách">
-                    </div>
+                    <label>Mã Căn Hộ (Unit Code) *</label>
+                    <input type="text" id="unitCode" class="form-control" required placeholder="Ví dụ: A-12.34 hoặc A12.99" autocomplete="off">
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Năm Sinh</label>
-                        <input type="text" id="guestBirth" required placeholder="Ví dụ: 1990">
-                    </div>
-                    <div class="form-group">
-                        <label>Mã Căn Hộ</label>
-                        <input type="text" id="unitCode" required placeholder="Ví dụ: A-12.34">
-                    </div>
+                <div class="guest-section-title">
+                    <span>Danh Sách Khách Đăng Ký</span>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Hộ Chiếu / CCCD</label>
-                        <input type="text" id="guestId" required placeholder="Số ID / Hộ chiếu">
-                    </div>
-                    <div class="form-group">
-                        <label>Quốc Tịch</label>
-                        <input type="text" id="guestNation" required placeholder="Ví dụ: Việt Nam / USA">
-                    </div>
+                <!-- Guest list rows container -->
+                <div class="guest-list-container" id="guestList">
+                    <!-- Dynamic rows inserted here -->
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>VISA</label>
-                        <input type="text" id="visa" placeholder="Nếu có">
-                    </div>
-                    <div class="form-group">
-                        <label>Hạn VISA</label>
-                        <input type="date" id="visaExpiry">
-                    </div>
-                </div>
+                <!-- Add Guest Row Button -->
+                <button type="button" class="btn-add-guest" onclick="addGuestRow()">
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Thêm Khách Hàng (+)
+                </button>
 
-                <div class="form-group">
-                    <label>Hộ khẩu thường trú (Address)</label>
-                    <input type="text" id="address" required placeholder="Nơi đăng ký thường trú / Tạm trú">
-                </div>
-
-                <div class="form-group">
-                    <label>Chủ Thể (Subject)</label>
-                    <select id="subject" required>
-                        <option value="Khách đến thăm/ Visitors">Khách đến thăm / Visitors</option>
-                        <option value="Khách thuê mới chuyển đến tòa nhà không có thông tin cư trú  / New tenants who move in have no residence information">Khách thuê mới chuyển đến / New tenants</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Ngày đến</label>
-                        <input type="date" id="checkInDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Giờ vào</label>
-                        <input type="time" id="checkInTime" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Ngày ra</label>
-                    <input type="date" id="checkOutDate" required>
-                </div>
-
-                <label class="checkbox-container">
-                    <input type="checkbox" id="agreement" checked required>
-                    Đồng ý và cam kết tuân thủ nội quy tòa nhà
-                </label>
-
-                <button type="submit" id="btnSingleSubmit" class="btn-submit">Nhập & Gửi Ngay</button>
+                <!-- Submit Button -->
+                <button type="submit" id="btnSubmit" class="btn-submit">Bắt Đầu Đăng Ký & Chụp Ảnh</button>
             </form>
+
+            <!-- Status Tracker -->
+            <div class="status-tracker" id="statusTracker">
+                <div class="guest-section-title" style="margin-top: 20px;">
+                    <span>Tiến Trình Đăng Ký</span>
+                </div>
+                <div id="statusList"></div>
+            </div>
+        </main>
+
+        <!-- Screenshots Results Area -->
+        <section class="results-section" id="resultsSection">
+            <h2 class="results-title">Ảnh Minh Chứng Đã Ghi Nhận</h2>
+            <div id="resultsContainer"></div>
         </section>
-
-        <!-- Card: Bulk Input -->
-        <section id="bulkCard" class="card">
-            <h2>Gửi form hàng loạt từ tệp tin</h2>
-            
-            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                <svg viewBox="0 0 24 24">
-                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-                </svg>
-                <p>Nhấp vào đây để tải lên danh sách</p>
-                <span>Hỗ trợ tệp tin Excel (.xlsx) hoặc tệp (.csv)</span>
-                <input type="file" id="fileInput" accept=".csv, .xlsx" onchange="handleFileSelect(event)">
-            </div>
-
-            <div class="file-selected" id="fileIndicator">
-                <span id="fileNameDisplay">file_name.csv</span>
-                <button class="btn-clear-file" onclick="clearFile()">Xóa</button>
-            </div>
-
-            <!-- Progress section -->
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-label">
-                    <span id="progressText">Đang gửi: 0/0 khách</span>
-                    <span id="progressPercent">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" id="progressBarFill"></div>
-                </div>
-
-                <table class="guest-list-table" id="guestTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 10%;">STT</th>
-                            <th style="width: 60%;">Tên khách</th>
-                            <th style="width: 30%;">Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody id="guestTableBody">
-                        <!-- Dynamic rows will be inserted here -->
-                    </tbody>
-                </table>
-            </div>
-
-            <button id="btnBulkSubmit" class="btn-submit" disabled onclick="handleBulkSubmit()">Bắt Đầu Gửi Hàng Loạt</button>
-        </section>
-    </div>
-
-    <!-- Notification Toast -->
-    <div id="toast" class="notification"></div>
-
-    <!-- Modal Receipt Overlay -->
-    <div id="receiptModal" class="modal-overlay">
-        <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-            <div id="receiptCard" class="receipt-card">
-                <div class="receipt-header">
-                    <div class="receipt-success-icon">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                        </svg>
-                    </div>
-                    <div class="receipt-title">RIVERGATE RESIDENCE</div>
-                    <div class="receipt-subtitle">Biên Nhận Đăng Ký Sảnh</div>
-                </div>
-                
-                <div class="receipt-divider"></div>
-                
-                <div class="receipt-body">
-                    <div class="receipt-row">
-                        <span class="receipt-label">Khách Hàng (Guest):</span>
-                        <span class="receipt-value" id="rcpGuestName">Bennan</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Năm Sinh (DOB):</span>
-                        <span class="receipt-value" id="rcpGuestBirth">2008</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Căn Hộ (Unit):</span>
-                        <span class="receipt-value" id="rcpUnitCode">A8.10</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Hộ Chiếu / CCCD:</span>
-                        <span class="receipt-value" id="rcpGuestId">PL4186782</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Quốc Tịch (Nation):</span>
-                        <span class="receipt-value" id="rcpNation">Nước Ngoài</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Ngày Đến (Checkin):</span>
-                        <span class="receipt-value" id="rcpCheckIn">10/08/2026 09:30</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Ngày Ra (Checkout):</span>
-                        <span class="receipt-value" id="rcpCheckOut">14/08/2026</span>
-                    </div>
-                    <div class="receipt-row" style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 8px;">
-                        <span class="receipt-label">Đại Diện Đăng Ký:</span>
-                        <span class="receipt-value" id="rcpRepName">MMM</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Số ĐT Đại Diện:</span>
-                        <span class="receipt-value" id="rcpRepPhone">05665313563</span>
-                    </div>
-                </div>
-                
-                <div class="receipt-divider"></div>
-                
-                <div class="receipt-footer">
-                    <div style="font-weight: 600; color: var(--success); margin-bottom: 2px;">✓ ĐÃ GỬI THÀNH CÔNG GOOGLE FORM</div>
-                    <div style="font-size: 9px; color: var(--text-muted);" id="rcpTimestamp">Đăng ký lúc: 10/08/2026 19:48</div>
-                </div>
-            </div>
-            
-            <div class="modal-buttons" style="width: 100%; max-width: 360px;">
-                <button class="btn-modal btn-modal-download" onclick="downloadReceipt()">Tải Ảnh Biên Nhận (Lưu Điện Thoại)</button>
-                <button class="btn-modal btn-modal-close" onclick="closeReceiptModal()">Đóng</button>
-            </div>
-        </div>
     </div>
 
     <script>
-        // Lists of names and addresses for realistic randomization
-        const REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"];
-        const REP_FEMALE_NAMES = ["Nguyễn Thị Mai", "Trần Thu Trang", "Lê Linh Chi", "Phạm Hải Yến", "Nguyễn Khánh An", "Trần Mỹ Linh", "Đỗ Vân Anh", "Vũ Phương Thảo", "Lê Mai Hương", "Phạm Quỳnh Chi"];
-        
-        const GUEST_MALE_NAMES = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Nguyễn Văn Nam", "Trần Hoàng Bách", "Lê Tuấn Kiệt"];
-        const GUEST_FEMALE_NAMES = ["Agne", "Amada", "Mary", "Anna", "Linda", "Elizabeth", "Sarah", "Jessica", "Karen", "Lisa", "Helen", "Sandra", "Emily", "Trần Thu Thảo", "Nguyễn Mai Anh", "Lê Vy"];
-        
-        const ADDRESSES = [
-            "123 Nguyễn Trãi, Quận 5, TP.HCM",
-            "456 Lê Lợi, Quận 1, TP.HCM",
-            "789 Cách Mạng Tháng 8, Quận 3, TP.HCM",
-            "101 Trần Hưng Đạo, Quận 1, TP.HCM",
-            "Rivergate Residence, Quận 4, TP.HCM",
-            "202 Bến Vân Đồn, Quận 4, TP.HCM",
-            "15 Hoàng Diệu, Quận 4, TP.HCM",
-            "368 Nguyễn Thị Minh Khai, Quận 3, TP.HCM"
-        ];
-        
-        const NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh", "Nhật Bản", "Đài Loan", "Trung Quốc"];
+        let guestCount = 0;
 
-        // Random generator function
-        function triggerRandomize() {
-            // 1. Tên người đăng ký & Số điện thoại
-            const repGender = Math.random() > 0.5 ? "male" : "female";
-            const repName = repGender === "male" 
-                ? REP_MALE_NAMES[Math.floor(Math.random() * REP_MALE_NAMES.length)]
-                : REP_FEMALE_NAMES[Math.floor(Math.random() * REP_FEMALE_NAMES.length)];
-            document.getElementById('regName').value = repName;
-            
-            // Random Vietnamese phone number (starts with 09, 03, 07, 08, 05)
-            const phonePrefixes = ["09", "03", "07", "08", "05"];
-            const prefix = phonePrefixes[Math.floor(Math.random() * phonePrefixes.length)];
-            const suffix = String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
-            document.getElementById('regPhone').value = prefix + suffix;
-            
-            // 2. Họ tên khách (theo Giới tính đang chọn)
-            onGenderChange();
-            
-            // 3. Năm sinh (1960 - 2010)
-            const birthYear = Math.floor(Math.random() * (2010 - 1960 + 1)) + 1960;
-            document.getElementById('guestBirth').value = birthYear;
-            
-            // 4. Quốc tịch
-            const nation = NATIONALITIES[Math.floor(Math.random() * NATIONALITIES.length)];
-            document.getElementById('guestNation').value = nation;
-            
-            // 5. VISA & Hạn VISA (Random VISA number)
-            const visaLetters = ["V", "DL", "EV"];
-            const visaLetter = visaLetters[Math.floor(Math.random() * visaLetters.length)];
-            const visaNumber = String(Math.floor(Math.random() * 10000000)).padStart(7, '0');
-            document.getElementById('visa').value = visaLetter + visaNumber;
-            
-            // 6. Hạn VISA (1 to 3 months in the future)
-            const visaExp = new Date();
-            visaExp.setMonth(visaExp.getMonth() + Math.floor(Math.random() * 3) + 1);
-            document.getElementById('visaExpiry').value = formatDate(visaExp);
-            
-            // 7. Địa chỉ hộ khẩu
-            document.getElementById('address').value = ADDRESSES[Math.floor(Math.random() * ADDRESSES.length)];
-            
-            // 8. Ngày đến (Ngày hiện tại - getdate)
-            const today = new Date();
-            document.getElementById('checkInDate').value = formatDate(today);
-            
-            // 9. Giờ vào (Giờ hiện tại + 30 phút)
-            const timeIn = new Date();
-            timeIn.setMinutes(timeIn.getMinutes() + 30);
-            const hours = String(timeIn.getHours()).padStart(2, '0');
-            const minutes = String(timeIn.getMinutes()).padStart(2, '0');
-            document.getElementById('checkInTime').value = `${hours}:${minutes}`;
-            
-            // 10. Ngày ra (Ngày đến + 1 đến 3 ngày)
-            const checkoutDays = Math.floor(Math.random() * 3) + 1; // 1 to 3 days
-            const checkOut = new Date(today);
-            checkOut.setDate(today.getDate() + checkoutDays);
-            document.getElementById('checkOutDate').value = formatDate(checkOut);
-            
-            // Note: Mã căn hộ (unitCode) và Hộ chiếu (guestId) sẽ để trống để người dùng nhập tay.
-        }
-
-        // Format Date to YYYY-MM-DD
-        function formatDate(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
-
-        // Handle Gender selection change
-        function onGenderChange() {
-            const gender = document.getElementById('guestGender').value;
-            let guestName = "";
-            if (gender === "male") {
-                guestName = GUEST_MALE_NAMES[Math.floor(Math.random() * GUEST_MALE_NAMES.length)];
-            } else {
-                guestName = GUEST_FEMALE_NAMES[Math.floor(Math.random() * GUEST_FEMALE_NAMES.length)];
-            }
-            document.getElementById('guestName').value = guestName;
-            
-            // Match nationality to name style (if names are foreign, default nation to foreign)
-            const isForeign = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Agne", "Amada", "Mary", "Anna", "Linda", "Elizabeth", "Sarah", "Jessica", "Karen", "Lisa", "Helen", "Sandra", "Emily"].includes(guestName);
-            if (isForeign) {
-                // Randomly select foreign nationality
-                const foreignNations = ["Lithuania", "USA", "Đức", "Anh", "Nhật Bản", "Hàn Quốc"];
-                document.getElementById('guestNation').value = foreignNations[Math.floor(Math.random() * foreignNations.length)];
-            } else {
-                document.getElementById('guestNation').value = "Việt Nam";
-            }
-        }
-
-        // Set default values on load
+        // Initialize form with 1 guest row
         window.addEventListener('load', () => {
-            // Trigger random values for all fields except Unit Code & Passport
-            triggerRandomize();
-            // Clear Unit Code & Passport explicitly to ensure user fills them
-            document.getElementById('unitCode').value = "";
-            document.getElementById('guestId').value = "";
+            addGuestRow();
         });
 
-        // Switch between single and bulk tabs
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.card').forEach(card => card.classList.remove('active'));
+        // Add a new guest input row
+        function addGuestRow() {
+            guestCount++;
+            const container = document.getElementById('guestList');
+            const row = document.createElement('div');
+            row.className = 'guest-row';
+            row.id = `guestRow-${guestCount}`;
+            row.innerHTML = `
+                <div class="guest-row-header">
+                    <span class="guest-number">Khách hàng #${guestCount}</span>
+                    <button type="button" class="btn-delete-guest" onclick="deleteGuestRow(${guestCount})">Xóa</button>
+                </div>
+                <div class="guest-grid">
+                    <div>
+                        <input type="text" class="form-control guest-passport" required placeholder="Hộ chiếu / CCCD" autocomplete="off">
+                    </div>
+                    <div>
+                        <select class="form-control guest-gender">
+                            <option value="female" selected>Nữ (F)</option>
+                            <option value="male">Nam (M)</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            container.appendChild(row);
+            updateDeleteButtons();
+        }
 
-            if (tab === 'single') {
-                event.target.classList.add('active');
-                document.getElementById('singleCard').classList.add('active');
-            } else {
-                event.target.classList.add('active');
-                document.getElementById('bulkCard').classList.add('active');
+        // Delete a guest row
+        function deleteGuestRow(id) {
+            const row = document.getElementById(`guestRow-${id}`);
+            if (row) {
+                row.remove();
+                reorderGuests();
+                updateDeleteButtons();
             }
         }
 
-        // Show toast notification
-        function showNotification(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = `notification ${type} show`;
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-
-        // Handle single guest submission
-        async function handleSingleSubmit(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('btnSingleSubmit');
-            btn.disabled = true;
-            btn.textContent = "Đang gửi...";
-
-            // Construct payload dictionary
-            const payload = {
-                "Họ và tên người đăng ký": document.getElementById('regName').value,
-                "Số điện thoại người đăng ký": document.getElementById('regPhone').value,
-                "Họ và tên khách": document.getElementById('guestName').value,
-                "Năm sinh": document.getElementById('guestBirth').value,
-                "Mã Căn Hộ": document.getElementById('unitCode').value,
-                "Hộ Chiếu_CCCD": document.getElementById('guestId').value,
-                "VISA": document.getElementById('visa').value || "",
-                "Hạn VISA": document.getElementById('visaExpiry').value || "",
-                "Quốc tịch": document.getElementById('guestNation').value,
-                "Thông tin hộ khẩu": document.getElementById('address').value,
-                "Chủ thể": document.getElementById('subject').value,
-                "Ngày đến": document.getElementById('checkInDate').value,
-                "Thời gian vào": document.getElementById('checkInTime').value,
-                "Ngày ra": document.getElementById('checkOutDate').value,
-                "Cam kết tuân thủ": document.getElementById('agreement').checked ? "Tôi đã đọc và đồng ý" : ""
-            };
-
-            try {
-                const response = await fetch('/api/submit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
-                });
-
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    showNotification("Đã gửi thông tin đăng ký thành công!");
-                    
-                    // Show receipt modal
-                    showReceiptModal(payload);
-
-                    // Clear guest inputs, keep representative details for convenience
-                    document.getElementById('guestName').value = "";
-                    document.getElementById('guestBirth').value = "";
-                    document.getElementById('guestId').value = "";
-                    document.getElementById('visa').value = "";
-                    document.getElementById('visaExpiry').value = "";
-                } else {
-                    showNotification(result.error || "Gửi thất bại, đã xảy ra lỗi.", "error");
-                }
-            } catch (err) {
-                showNotification("Lỗi kết nối tới Server.", "error");
-                console.error(err);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = "Nhập & Gửi Ngay";
-            }
-        }
-
-        // Keep track of bulk rows
-        let bulkGuests = [];
-
-        // Handle file selection for bulk submit
-        async function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            document.getElementById('fileNameDisplay').textContent = file.name;
-            document.getElementById('fileIndicator').style.display = 'flex';
-
-            const formData = new FormData();
-            formData.append("file", file);
-
-            try {
-                // Upload file to parse it
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+        // Re-number guest headers
+        function reorderGuests() {
+            const rows = document.querySelectorAll('.guest-row');
+            guestCount = 0;
+            rows.forEach((row) => {
+                guestCount++;
+                row.id = `guestRow-${guestCount}`;
+                const numberSpan = row.querySelector('.guest-number');
+                numberSpan.textContent = `Khách hàng #${guestCount}`;
                 
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    bulkGuests = result.guests;
-                    showNotification(`Đã tải lên thành công danh sách ${bulkGuests.length} khách!`);
-                    
-                    // Render the table
-                    const tbody = document.getElementById('guestTableBody');
-                    tbody.innerHTML = "";
-                    bulkGuests.forEach((guest, index) => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${index + 1}</td>
-                            <td><strong>${guest["Họ và tên khách"] || "Chưa có tên"}</strong></td>
-                            <td><span class="status-badge status-pending" id="status-${index}">Đang chờ</span></td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                const deleteBtn = row.querySelector('.btn-delete-guest');
+                deleteBtn.setAttribute('onclick', `deleteGuestRow(${guestCount})`);
+            });
+        }
 
-                    document.getElementById('progressContainer').style.display = 'block';
-                    document.getElementById('btnBulkSubmit').disabled = false;
-                    
-                    // Update progress display
-                    document.getElementById('progressText').textContent = `Đang chuẩn bị: 0/${bulkGuests.length} khách`;
-                    document.getElementById('progressBarFill').style.width = '0%';
-                    document.getElementById('progressPercent').textContent = '0%';
-                } else {
-                    showNotification(result.error || "Lỗi đọc tệp danh sách.", "error");
-                    clearFile();
-                }
-            } catch (err) {
-                showNotification("Lỗi tải tệp lên server.", "error");
-                console.error(err);
-                clearFile();
+        // Hide delete buttons if only 1 row remains
+        function updateDeleteButtons() {
+            const deleteButtons = document.querySelectorAll('.btn-delete-guest');
+            if (deleteButtons.length <= 1) {
+                deleteButtons.forEach(btn => btn.style.display = 'none');
+            } else {
+                deleteButtons.forEach(btn => btn.style.display = 'block');
             }
         }
 
-        // Clear uploaded file
-        function clearFile() {
-            document.getElementById('fileInput').value = "";
-            document.getElementById('fileIndicator').style.display = 'none';
-            document.getElementById('progressContainer').style.display = 'none';
-            document.getElementById('btnBulkSubmit').disabled = true;
-            bulkGuests = [];
-        }
+        // Form submit handler
+        async function handleFormSubmit(e) {
+            e.preventDefault();
 
-        // Submit bulk list sequentially
-        async function handleBulkSubmit() {
-            const btn = document.getElementById('btnBulkSubmit');
-            btn.disabled = true;
-            btn.textContent = "Đang xử lý...";
+            const unitCode = document.getElementById('unitCode').value.trim();
+            const rows = document.querySelectorAll('.guest-row');
+            
+            if (rows.length === 0) return;
 
-            const total = bulkGuests.length;
-            let successCount = 0;
+            const guestsData = [];
+            rows.forEach(row => {
+                const guestId = row.querySelector('.guest-passport').value.trim();
+                const gender = row.querySelector('.guest-gender').value;
+                guestsData.push({ guestId, gender });
+            });
 
-            for (let i = 0; i < total; i++) {
-                const statusBadge = document.getElementById(`status-${i}`);
-                statusBadge.textContent = "Đang gửi...";
-                statusBadge.className = "status-badge status-pending";
+            // Reset displays
+            const btnSubmit = document.getElementById('btnSubmit');
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Đang thực hiện đăng ký...";
 
-                const guest = bulkGuests[i];
+            document.getElementById('statusTracker').style.display = 'block';
+            const statusList = document.getElementById('statusList');
+            statusList.innerHTML = "";
+
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.innerHTML = "";
+            document.getElementById('resultsSection').style.display = 'none';
+
+            // Create progress indicators
+            guestsData.forEach((g, index) => {
+                const item = document.createElement('div');
+                item.className = 'status-item';
+                item.id = `statusItem-${index}`;
+                item.innerHTML = `
+                    <span>Khách #${index + 1} (${g.guestId})</span>
+                    <span class="status-badge status-pending" id="statusBadge-${index}">Đang chờ</span>
+                `;
+                statusList.appendChild(item);
+            });
+
+            // Process sequentially to protect server RAM
+            for (let i = 0; i < guestsData.length; i++) {
+                const badge = document.getElementById(`statusBadge-${i}`);
+                badge.textContent = "Đang đăng ký...";
+                badge.className = "status-badge status-running";
+
+                const guest = guestsData[i];
                 
                 try {
                     const response = await fetch('/api/submit', {
@@ -1105,94 +572,111 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify(guest),
+                        body: JSON.stringify({
+                            unitCode: unitCode,
+                            guestId: guest.guestId,
+                            gender: guest.gender
+                        }),
                     });
 
                     const result = await response.json();
-                    
+
                     if (response.ok && result.success) {
-                        statusBadge.textContent = "Thành công";
-                        statusBadge.className = "status-badge status-success";
-                        successCount++;
+                        badge.textContent = "Thành công";
+                        badge.className = "status-badge status-success";
+                        
+                        // Add screenshots to results section
+                        appendResultBox(result.guestName, guest.guestId, result.screenshot_filled, result.screenshot_submitted);
                     } else {
-                        statusBadge.textContent = "Thất bại";
-                        statusBadge.className = "status-badge status-error";
+                        badge.textContent = "Thất bại";
+                        badge.className = "status-badge status-error";
+                        if (result.screenshot_filled) {
+                            appendErrorBox(result.guestName || `Khách ${i+1}`, guest.guestId, result.error || "Gặp lỗi khi điền", result.screenshot_filled);
+                        }
                     }
                 } catch (err) {
-                    statusBadge.textContent = "Lỗi kết nối";
-                    statusBadge.className = "status-badge status-error";
+                    badge.textContent = "Lỗi mạng";
+                    badge.className = "status-badge status-error";
+                    console.error(err);
                 }
-
-                // Update Progress bar
-                const percent = Math.round(((i + 1) / total) * 100);
-                document.getElementById('progressBarFill').style.width = `${percent}%`;
-                document.getElementById('progressPercent').textContent = `${percent}%`;
-                document.getElementById('progressText').textContent = `Đang xử lý: ${i + 1}/${total} khách`;
-                
-                // Add minor delay between submissions to avoid spamming
-                await new Promise(resolve => setTimeout(resolve, 600));
             }
 
-            showNotification(`Đã hoàn tất gửi danh sách! Thành công: ${successCount}/${total}`);
-            btn.textContent = "Đã Hoàn Tất";
+            // Finished all
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = "Bắt Đầu Đăng Ký & Chụp Ảnh";
         }
 
-        // Global variable to keep guest name for downloading
-        let currentReceiptGuestName = "Khach";
-
-        // Show receipt modal function
-        function showReceiptModal(data) {
-            currentReceiptGuestName = data["Họ và tên khách"] || "Khach";
+        // Add result details box
+        function appendResultBox(name, passport, imgFilled, imgSubmitted) {
+            document.getElementById('resultsSection').style.display = 'block';
+            const container = document.getElementById('resultsContainer');
             
-            // Format dates from YYYY-MM-DD to DD/MM/YYYY
-            const formatDateDMY = (dateStr) => {
-                if (!dateStr) return "N/A";
-                const parts = dateStr.split('-');
-                if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                return dateStr;
-            };
-
-            document.getElementById('rcpGuestName').textContent = data["Họ và tên khách"];
-            document.getElementById('rcpGuestBirth').textContent = data["Năm sinh"];
-            document.getElementById('rcpUnitCode').textContent = data["Mã Căn Hộ"];
-            document.getElementById('rcpGuestId').textContent = data["Hộ Chiếu_CCCD"];
-            document.getElementById('rcpNation').textContent = data["Quốc tịch"];
-            document.getElementById('rcpCheckIn').textContent = `${formatDateDMY(data["Ngày đến"])} ${data["Thời gian vào"]}`;
-            document.getElementById('rcpCheckOut').textContent = formatDateDMY(data["Ngày ra"]);
-            document.getElementById('rcpRepName').textContent = data["Họ và tên người đăng ký"];
-            document.getElementById('rcpRepPhone').textContent = data["Số điện thoại người đăng ký"];
+            const box = document.createElement('div');
+            box.className = 'guest-result-box';
             
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('vi-VN');
-            const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            document.getElementById('rcpTimestamp').textContent = `Đăng ký lúc: ${timeStr} - ${dateStr}`;
-
-            document.getElementById('receiptModal').classList.add('show');
+            const sanitizedName = name.replace(/\s+/g, '_');
+            
+            box.innerHTML = `
+                <div class="guest-result-header">
+                    <span>Khách: ${name} (${passport})</span>
+                    <span class="status-badge status-success">Đã Chụp Ảnh</span>
+                </div>
+                <div class="screenshot-grid">
+                    <div class="screenshot-item">
+                        <p>1. Form đã điền thông tin</p>
+                        <div class="screenshot-img-wrapper">
+                            <img class="screenshot-img" src="${imgFilled}" alt="Form đã điền">
+                        </div>
+                        <button class="btn-download-img" onclick="triggerDownload('${imgFilled}', 'DienForm_${sanitizedName}.png')">
+                            Tải Ảnh Điền Form (Lưu Máy)
+                        </button>
+                    </div>
+                    <div class="screenshot-item">
+                        <p>2. Biên nhận gửi thành công</p>
+                        <div class="screenshot-img-wrapper">
+                            <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi">
+                        </div>
+                        <button class="btn-download-img" onclick="triggerDownload('${imgSubmitted}', 'XacNhan_${sanitizedName}.png')">
+                            Tải Ảnh Xác Nhận (Lưu Máy)
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(box);
         }
 
-        // Close modal function
-        function closeReceiptModal() {
-            document.getElementById('receiptModal').classList.remove('show');
+        // Add error details box
+        function appendErrorBox(name, passport, errorMsg, imgError) {
+            document.getElementById('resultsSection').style.display = 'block';
+            const container = document.getElementById('resultsContainer');
+            
+            const box = document.createElement('div');
+            box.className = 'guest-result-box';
+            box.style.borderColor = 'rgba(255, 118, 117, 0.3)';
+            
+            box.innerHTML = `
+                <div class="guest-result-header">
+                    <span>Khách: ${name} (${passport})</span>
+                    <span class="status-badge status-error">Lỗi: ${errorMsg}</span>
+                </div>
+                <div class="screenshot-grid">
+                    <div class="screenshot-item">
+                        <p>Ảnh sự cố (Error Screenshot)</p>
+                        <div class="screenshot-img-wrapper">
+                            <img class="screenshot-img" src="${imgError}" alt="Lỗi form">
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(box);
         }
 
-        // Download receipt card as image using html2canvas
-        function downloadReceipt() {
-            const card = document.getElementById('receiptCard');
-            const guest = currentReceiptGuestName.trim().replace(/\s+/g, '_');
-            
-            html2canvas(card, {
-                scale: 2, // Double quality for sharp text
-                backgroundColor: '#06020f', // Match background gradient
-                useCORS: true
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `BienNhan_${guest}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            }).catch(err => {
-                console.error("Error generating screenshot:", err);
-                showNotification("Không thể chụp ảnh, vui lòng thử lại.", "error");
-            });
+        // Force browser image download
+        function triggerDownload(base64Data, filename) {
+            const link = document.createElement('a');
+            link.href = base64Data;
+            link.download = filename;
+            link.click();
         }
     </script>
 </body>
