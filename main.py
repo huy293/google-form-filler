@@ -37,8 +37,11 @@ NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh
 submit_lock = None
 
 # Global browser singleton for speed and low RAM usage on Render
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform"
 GLOBAL_PLAYWRIGHT = None
 GLOBAL_BROWSER = None
+GLOBAL_CONTEXT = None
+GLOBAL_PAGE = None
 
 async def get_browser():
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
@@ -86,9 +89,56 @@ async def get_browser():
         
     return GLOBAL_BROWSER
 
+async def get_page():
+    global GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
+    browser = await get_browser()
+    
+    is_page_broken = False
+    if GLOBAL_PAGE is not None:
+        try:
+            # Test if page is responsive
+            await GLOBAL_PAGE.title()
+        except Exception:
+            is_page_broken = True
+            
+    if GLOBAL_PAGE is None or is_page_broken:
+        print("Initializing new global page and pre-loading Google Form...")
+        if GLOBAL_CONTEXT:
+            try:
+                await GLOBAL_CONTEXT.close()
+            except Exception:
+                pass
+        GLOBAL_CONTEXT = await browser.new_context(
+            viewport={"width": 393, "height": 851},
+            is_mobile=True,
+            has_touch=True
+        )
+        GLOBAL_PAGE = await GLOBAL_CONTEXT.new_page()
+        # Block analytics
+        await GLOBAL_PAGE.route("**/*", lambda route: 
+            route.abort() if any(domain in route.request.url for domain in [
+                "google-analytics.com", "googletagmanager.com", "analytics", 
+                "collect?", "doubleclick.net", "googleadservices.com"
+            ]) else route.continue_()
+        )
+        await GLOBAL_PAGE.goto(FORM_URL, wait_until="load", timeout=25000)
+        
+    return GLOBAL_PAGE
+
+async def pre_load_form_background():
+    global GLOBAL_PAGE
+    if GLOBAL_PAGE:
+        try:
+            print("Background pre-loading form page for next guest...")
+            await GLOBAL_PAGE.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+        except Exception as e:
+            print(f"Error in background form pre-load: {e}")
+
 async def force_relaunch_browser():
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
     print("Force relaunching browser singleton...")
+    GLOBAL_PAGE = None
+    GLOBAL_CONTEXT = None
     if GLOBAL_BROWSER:
         try:
             await GLOBAL_BROWSER.close()
@@ -101,20 +151,26 @@ async def force_relaunch_browser():
         except Exception:
             pass
         GLOBAL_PLAYWRIGHT = None
-    await get_browser()
+    await get_page()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm browser on startup
+    # Pre-warm browser and pre-load page on startup
     try:
-        await get_browser()
+        await get_page()
+        print("Lifespan: Global page pre-loaded successfully!")
     except Exception as e:
-        print(f"Error pre-warming browser: {e}")
+        print(f"Error pre-warming page during lifespan: {e}")
         
     yield
     
     # Shutdown logic
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
+    if GLOBAL_CONTEXT:
+        try:
+            await GLOBAL_CONTEXT.close()
+        except Exception:
+            pass
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
         try:
@@ -285,46 +341,19 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    context = None
-    page = None
-    
     try:
-        browser = await get_browser()
-
-        # Create a new isolated context for this request (with auto-healing fallback and custom mobile viewport)
-        try:
-            context = await browser.new_context(
-                viewport={"width": 393, "height": 851},
-                is_mobile=True,
-                has_touch=True
-            )
-        except Exception as e:
-            print(f"Failed to create context: {e}. Force relaunching browser singleton...")
-            await force_relaunch_browser()
-            browser = await get_browser()
-            context = await browser.new_context(
-                viewport={"width": 393, "height": 851},
-                is_mobile=True,
-                has_touch=True
-            )
-            
-        page = await context.new_page()
+        page = await get_page()
         
+        # If the page is not on the form page or still loading, load it
+        if "formResponse" in page.url or await page.locator('.vHW8K').count() > 0 or page.url == "about:blank":
+            log_step("1. Navigating to Google Form...")
+            print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
+            await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+        else:
+            log_step("1. Using pre-loaded form page (instant)...")
+            
         global RUNNING_LOGS
         RUNNING_LOGS = []
-        
-        # Block analytics and ads to speed up load time
-        await page.route("**/*", lambda route: 
-            route.abort() if any(domain in route.request.url for domain in [
-                "google-analytics.com", "googletagmanager.com", "analytics", 
-                "collect?", "doubleclick.net", "googleadservices.com"
-            ]) else route.continue_()
-        )
-
-        # Go to form
-        log_step("1. Navigating to Google Form...")
-        print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="domcontentloaded", timeout=20000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
         log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
@@ -438,6 +467,10 @@ async def fill_form_playwright(data: SubmitRequest):
         
         log_step("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
+        
+        # Start background navigation to pre-load form page for next guest
+        asyncio.create_task(pre_load_form_background())
+        
         return {
             "success": True,
             "guestName": guest_name,
@@ -458,6 +491,10 @@ async def fill_form_playwright(data: SubmitRequest):
             err_b64 = base64.b64encode(err_bytes).decode('utf-8')
         except Exception:
             err_b64 = ""
+            
+        # Start background navigation to pre-load form page for next guest
+        asyncio.create_task(pre_load_form_background())
+        
         return {
             "success": False,
             "error": f"Lỗi điền form: {str(e)}",
@@ -465,12 +502,7 @@ async def fill_form_playwright(data: SubmitRequest):
             "screenshot_submitted": ""
         }
     finally:
-        # Only close context (pages inside it are closed automatically)
-        try:
-            if context:
-                await context.close()
-        except Exception:
-            pass
+        pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
