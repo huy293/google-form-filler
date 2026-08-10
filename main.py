@@ -40,42 +40,59 @@ submit_lock = asyncio.Lock()
 GLOBAL_PLAYWRIGHT = None
 GLOBAL_BROWSER = None
 
+async def get_browser():
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    if GLOBAL_PLAYWRIGHT is None:
+        print("Starting global Playwright...")
+        GLOBAL_PLAYWRIGHT = await async_playwright().start()
+        
+    if GLOBAL_BROWSER is None or not GLOBAL_BROWSER.is_connected():
+        print("Browser is disconnected or not started. Starting new Chromium instance...")
+        launch_args = []
+        if os.name != 'nt':  # Linux/Docker
+            launch_args = [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--single-process",
+                "--js-flags=--max-old-space-size=128",
+                "--disable-extensions",
+                "--disable-default-apps"
+            ]
+        is_headless = os.name != 'nt'
+        GLOBAL_BROWSER = await GLOBAL_PLAYWRIGHT.chromium.launch(
+            headless=is_headless,
+            args=launch_args
+        )
+        print("New Chromium instance started successfully!")
+        
+    return GLOBAL_BROWSER
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
-    print("Initializing global Playwright and Chromium browser...")
-    GLOBAL_PLAYWRIGHT = await async_playwright().start()
-    
-    launch_args = []
-    if os.name != 'nt':  # Linux/Docker
-        launch_args = [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--single-process",
-            "--js-flags=--max-old-space-size=128",
-            "--disable-extensions",
-            "--disable-default-apps"
-        ]
+    # Pre-warm browser on startup
+    try:
+        await get_browser()
+    except Exception as e:
+        print(f"Error pre-warming browser: {e}")
         
-    # Platform-conditional headless: True on Linux/Render, False on Windows/Local
-    is_headless = os.name != 'nt'
-    GLOBAL_BROWSER = await GLOBAL_PLAYWRIGHT.chromium.launch(
-        headless=is_headless,
-        args=launch_args
-    )
-    print("Global Chromium browser launched and ready!")
-    
     yield
     
     # Shutdown logic
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
-        await GLOBAL_BROWSER.close()
+        try:
+            await GLOBAL_BROWSER.close()
+        except Exception:
+            pass
     if GLOBAL_PLAYWRIGHT:
         print("Stopping global Playwright...")
-        await GLOBAL_PLAYWRIGHT.stop()
+        try:
+            await GLOBAL_PLAYWRIGHT.stop()
+        except Exception:
+            pass
 
 app = FastAPI(title="Google Form Auto-Filler Web API", lifespan=lifespan)
 
@@ -90,18 +107,17 @@ async def get_index():
 @app.get("/health")
 async def health_check():
     global GLOBAL_BROWSER
+    is_ok = GLOBAL_BROWSER is not None and GLOBAL_BROWSER.is_connected()
     return {
         "status": "healthy",
-        "browser_initialized": GLOBAL_BROWSER is not None
+        "browser_initialized": is_ok
     }
 
 @app.get("/test-browser")
 async def test_browser():
-    global GLOBAL_BROWSER
-    if not GLOBAL_BROWSER:
-        return {"success": False, "error": "Browser not initialized"}
     try:
-        context = await GLOBAL_BROWSER.new_context()
+        browser = await get_browser()
+        context = await browser.new_context()
         page = await context.new_page()
         print("Test browser: navigating to example.com...")
         await page.goto("https://example.com", wait_until="load", timeout=10000)
@@ -113,11 +129,9 @@ async def test_browser():
 
 @app.get("/test-form")
 async def test_form():
-    global GLOBAL_BROWSER
-    if not GLOBAL_BROWSER:
-        return {"success": False, "error": "Browser not initialized"}
     try:
-        context = await GLOBAL_BROWSER.new_context(
+        browser = await get_browser()
+        context = await browser.new_context(
             viewport={"width": 1280, "height": 900}
         )
         page = await context.new_page()
@@ -214,12 +228,10 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    global GLOBAL_BROWSER
-    if not GLOBAL_BROWSER:
-        raise HTTPException(status_code=500, detail="Browser is not initialized. Please try again in a few seconds.")
+    browser = await get_browser()
 
     # Create a new isolated context for this request
-    context = await GLOBAL_BROWSER.new_context(
+    context = await browser.new_context(
         viewport={"width": 1280, "height": 900}
     )
     page = await context.new_page()
