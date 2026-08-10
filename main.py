@@ -193,6 +193,13 @@ async def test_form():
 
 RUNNING_LOGS = []
 
+def log_step(step_name):
+    global RUNNING_LOGS
+    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    msg = f"[{timestamp}] {step_name}"
+    RUNNING_LOGS.append(msg)
+    print(msg)
+
 @app.get("/status")
 async def get_status():
     global RUNNING_LOGS
@@ -298,12 +305,12 @@ async def fill_form_playwright(data: SubmitRequest):
         )
 
         # Go to form
-        RUNNING_LOGS.append("1. Navigating to Google Form...")
+        log_step("1. Navigating to Google Form...")
         print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
         await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="domcontentloaded", timeout=20000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
-        RUNNING_LOGS.append("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
+        log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
         fields_to_fill = {
             "Họ và tên người đăng ký": "178418221",
             "Số điện thoại người đăng ký": "2093418625",
@@ -324,7 +331,7 @@ async def fill_form_playwright(data: SubmitRequest):
             await input_el.first.fill(str(val))
             
         # Dropdown: Chủ thể - 117977297
-        RUNNING_LOGS.append("3. Clicking dropdown subject...")
+        log_step("3. Clicking dropdown subject...")
         container = page.locator('div[data-params*="117977297"]')
         await container.locator('div[role="listbox"]').first.click(force=True)
         await asyncio.sleep(0.05)
@@ -340,7 +347,7 @@ async def fill_form_playwright(data: SubmitRequest):
         await asyncio.sleep(0.05)
         
         # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
-        RUNNING_LOGS.append("4. Filling check-in/out dates...")
+        log_step("4. Filling check-in/out dates...")
         date_fields = {
             "Ngày đến": "1707290555",
             "Ngày ra": "1028902383"
@@ -352,7 +359,7 @@ async def fill_form_playwright(data: SubmitRequest):
             await container.locator('input[type="date"]').fill(val)
                 
         # Time: Thời gian vào - 1773051864 (HH:MM)
-        RUNNING_LOGS.append("5. Filling check-in time...")
+        log_step("5. Filling check-in time...")
         time_val = row_data["Thời gian vào"]
         container = page.locator('div[data-params*="1773051864"]')
         native_time = container.locator('input[type="time"]')
@@ -367,34 +374,34 @@ async def fill_form_playwright(data: SubmitRequest):
                 await container.locator('input').nth(1).fill(minute)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
-        RUNNING_LOGS.append("6. Checking compliance checkbox...")
+        log_step("6. Checking compliance checkbox...")
         container = page.locator('div[data-params*="1651751105"]')
         await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
         await asyncio.sleep(0.05)
         
         # Settle and take first screenshot (filled form as compressed JPEG)
-        RUNNING_LOGS.append("7. Capturing filled form screenshot...")
+        log_step("7. Capturing filled form screenshot...")
         await page.evaluate("window.scrollTo(0, 0);")
         await asyncio.sleep(0.1)
         filled_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
-        RUNNING_LOGS.append("8. Clicking Submit button...")
+        log_step("8. Clicking Submit button...")
         submit_btn = page.locator('div[role="button"].Y5sE8d').first
         await submit_btn.click()
         
         # Wait for confirmation message wrapper or "Submit another response" link
-        RUNNING_LOGS.append("9. Waiting for confirmation page element...")
+        log_step("9. Waiting for confirmation page element...")
         await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
         await asyncio.sleep(0.1)
         
         # Take submitted screenshot (as compressed JPEG)
-        RUNNING_LOGS.append("10. Capturing confirmation screenshot...")
+        log_step("10. Capturing confirmation screenshot...")
         submitted_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
         
-        RUNNING_LOGS.append("11. Done!")
+        log_step("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
         return {
             "success": True,
@@ -405,7 +412,7 @@ async def fill_form_playwright(data: SubmitRequest):
         
     except Exception as e:
         err_msg = f"Error: {str(e)}"
-        RUNNING_LOGS.append(err_msg)
+        log_step(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
         return {
             "success": False,
