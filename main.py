@@ -89,101 +89,48 @@ async def get_browser():
         
     return GLOBAL_BROWSER
 
-async def get_page():
-    global GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
+async def create_new_page():
     browser = await get_browser()
+    context = await browser.new_context(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        viewport={"width": 393, "height": 851},
+        is_mobile=True,
+        has_touch=True
+    )
+    # Bypassing webdriver detection to prevent Google throttling
+    await context.add_init_script("delete navigator.__proto__.webdriver;")
     
-    is_page_broken = False
-    if GLOBAL_PAGE is not None:
-        try:
-            if GLOBAL_PAGE.is_closed():
-                is_page_broken = True
-            else:
-                # Use evaluate to verify JavaScript execution context is active
-                await GLOBAL_PAGE.evaluate("1 + 1")
-        except Exception:
-            is_page_broken = True
+    page = await context.new_page()
+    
+    # Block fonts, analytics, and tracking scripts to optimize speed and CPU/RAM
+    async def handle_route(route):
+        url = route.request.url.lower()
+        resource_type = route.request.resource_type
+        if any(domain in url for domain in [
+            "google-analytics.com", "googletagmanager.com", "analytics", 
+            "collect?", "doubleclick.net", "googleadservices.com",
+            "fonts.googleapis.com", "fonts.gstatic.com"
+        ]) or resource_type in ["font"]:
+            await route.abort()
+        else:
+            await route.continue_()
             
-    if GLOBAL_PAGE is None or is_page_broken:
-        print("Initializing new global page and pre-loading Google Form...")
-        if GLOBAL_CONTEXT:
-            try:
-                await GLOBAL_CONTEXT.close()
-            except Exception:
-                pass
-        GLOBAL_CONTEXT = await browser.new_context(
-            viewport={"width": 393, "height": 851},
-            is_mobile=True,
-            has_touch=True
-        )
-        GLOBAL_PAGE = await GLOBAL_CONTEXT.new_page()
-        
-        # Block fonts, analytics, and tracking scripts to optimize speed and CPU/RAM
-        async def handle_route(route):
-            url = route.request.url.lower()
-            resource_type = route.request.resource_type
-            if any(domain in url for domain in [
-                "google-analytics.com", "googletagmanager.com", "analytics", 
-                "collect?", "doubleclick.net", "googleadservices.com",
-                "fonts.googleapis.com", "fonts.gstatic.com"
-            ]) or resource_type in ["font"]:
-                await route.abort()
-            else:
-                await route.continue_()
-                
-        await GLOBAL_PAGE.route("**/*", handle_route)
-        await GLOBAL_PAGE.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
-        
-    return GLOBAL_PAGE
-
-async def prepare_clean_form(page):
-    try:
-        # 1. Check if we are on confirmation screen (Submit another response link is visible)
-        link = page.locator('a[href*="viewform"]').first
-        if await link.count() > 0 and await link.is_visible():
-            print("Confirmation screen detected. Resetting via link...")
-            await link.click()
-            await page.locator('form').first.wait_for(state="visible", timeout=6000)
-            return True
-            
-        # 2. Form screen detected. Clear inputs locally via JS to avoid network reloads
-        print("Form screen detected. Resetting inputs locally via DOM JS...")
-        await page.evaluate("""() => {
-            document.querySelectorAll('input[type="text"], textarea').forEach(el => {
-                el.value = '';
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-            document.querySelectorAll('div[role="checkbox"], div[role="radio"]').forEach(el => {
-                if (el.getAttribute('aria-checked') === 'true') {
-                    el.click();
-                }
-            });
-        }""")
-        return True
-    except Exception as e:
-        print(f"Failed to reset/clean form: {e}. Reloading page as fallback...")
-        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
-        return False
+    await page.route("**/*", handle_route)
+    return context, page
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm browser and pre-load page on startup
+    # Pre-warm browser process on startup
     try:
-        await get_page()
-        print("Lifespan: Global page pre-loaded successfully!")
+        await get_browser()
+        print("Lifespan: Global browser pre-warmed successfully!")
     except Exception as e:
-        print(f"Error pre-warming page during lifespan: {e}")
+        print(f"Error pre-warming browser during lifespan: {e}")
         
     yield
     
     # Shutdown logic
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
-    if GLOBAL_CONTEXT:
-        try:
-            await GLOBAL_CONTEXT.close()
-        except Exception:
-            pass
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
         try:
@@ -354,14 +301,17 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
+    context = None
+    page = None
     try:
-        page = await get_page()
+        # Create fully optimized fresh page and context (100% memory safe)
+        context, page = await create_new_page()
         
         global RUNNING_LOGS
         RUNNING_LOGS = []
         
         log_step("1. Preparing form page...")
-        await prepare_clean_form(page)
+        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
         log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
@@ -506,7 +456,16 @@ async def fill_form_playwright(data: SubmitRequest):
             "screenshot_submitted": ""
         }
     finally:
-        pass
+        if page:
+            try:
+                await page.close()
+            except Exception:
+                pass
+        if context:
+            try:
+                await context.close()
+            except Exception:
+                pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
