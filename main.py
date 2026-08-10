@@ -96,8 +96,11 @@ async def get_page():
     is_page_broken = False
     if GLOBAL_PAGE is not None:
         try:
-            # Test if page is responsive
-            await GLOBAL_PAGE.title()
+            if GLOBAL_PAGE.is_closed():
+                is_page_broken = True
+            else:
+                # Use evaluate to verify JavaScript execution context is active
+                await GLOBAL_PAGE.evaluate("1 + 1")
         except Exception:
             is_page_broken = True
             
@@ -114,14 +117,22 @@ async def get_page():
             has_touch=True
         )
         GLOBAL_PAGE = await GLOBAL_CONTEXT.new_page()
-        # Block analytics and tracker scripts to optimize speed and CPU RAM
-        await GLOBAL_PAGE.route("**/*", lambda route: 
-            route.abort() if any(domain in route.request.url for domain in [
+        
+        # Block fonts, analytics, and tracking scripts to optimize speed and CPU/RAM
+        async def handle_route(route):
+            url = route.request.url.lower()
+            resource_type = route.request.resource_type
+            if any(domain in url for domain in [
                 "google-analytics.com", "googletagmanager.com", "analytics", 
-                "collect?", "doubleclick.net", "googleadservices.com"
-            ]) else route.continue_()
-        )
-        await GLOBAL_PAGE.goto(FORM_URL, wait_until="load", timeout=25000)
+                "collect?", "doubleclick.net", "googleadservices.com",
+                "fonts.googleapis.com", "fonts.gstatic.com"
+            ]) or resource_type in ["font"]:
+                await route.abort()
+            else:
+                await route.continue_()
+                
+        await GLOBAL_PAGE.route("**/*", handle_route)
+        await GLOBAL_PAGE.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
         
     return GLOBAL_PAGE
 
