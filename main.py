@@ -56,16 +56,8 @@ async def reset_to_form_page(page):
             return True
     except Exception as e:
         print(f"Failed to click reset link: {e}")
-        
-    try:
-        print("Navigating to Google Form URL...")
-        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=15000)
-        GLOBAL_FORM_CLEAN = True
-        return True
-    except Exception as e:
-        print(f"Failed to navigate to form: {e}")
-        GLOBAL_FORM_CLEAN = False
-        return False
+    GLOBAL_FORM_CLEAN = False
+    return False
 
 async def get_browser():
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
@@ -363,12 +355,6 @@ async def fill_form_playwright(data: SubmitRequest):
     try:
         page = await get_page()
         
-        # Wait for any active background reset navigation to finish
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=12000)
-        except Exception:
-            pass
-            
         log_step("1. Preparing form page...")
         if not GLOBAL_FORM_CLEAN:
             # Check if page is currently on confirmation page, if so reset by clicking
@@ -502,8 +488,11 @@ async def fill_form_playwright(data: SubmitRequest):
         # Mark form as dirty
         GLOBAL_FORM_CLEAN = False
         
-        # Reset the form immediately in the background to prepare it for the next request in line
-        asyncio.create_task(reset_to_form_page(page))
+        # Reset the form immediately to prepare it for the next request in line
+        try:
+            await reset_to_form_page(page)
+        except Exception as e:
+            print(f"Could not reset form page: {e}")
             
         return {
             "success": True,
