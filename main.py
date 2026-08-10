@@ -387,37 +387,14 @@ async def fill_form_playwright(data: SubmitRequest):
         await asyncio.sleep(0.05)
         
         # Settle and take first screenshot (filled form as compressed JPEG)
-        log_step("7. Capturing filled form screenshot (scrolled to bottom)...")
-        # Scroll to absolute bottom of the page to show passport and unit code clearly
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight || document.documentElement.scrollHeight);")
+        log_step("7. Capturing filled form screenshot (scrolled to passport)...")
+        # Scroll the passport field to the center of the viewport to show it clearly along with the unit code
+        passport_container = page.locator('div[data-params*="1388064463"]')
+        if await passport_container.count() > 0:
+            await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'center' })")
         await asyncio.sleep(0.3)
         filled_bytes = await page.screenshot(type="jpeg", quality=55)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
-        
-        # If running locally (Windows), capture a full-page debug screenshot
-        screenshot_full_b64 = None
-        if os.name == 'nt':
-            try:
-                # Scroll to top to capture a clean full page screenshot
-                await page.evaluate("window.scrollTo(0, 0);")
-                await asyncio.sleep(0.1)
-                full_bytes = await page.screenshot(type="jpeg", quality=40, full_page=True)
-                screenshot_full_b64 = base64.b64encode(full_bytes).decode('utf-8')
-                
-                # Also save to local_screenshots folder for manual inspection
-                import os as local_os
-                local_os.makedirs("local_screenshots", exist_ok=True)
-                sanitized_name = guest_name.replace(" ", "_")
-                local_file_path = f"local_screenshots/full_filled_{sanitized_name}.png"
-                with open(local_file_path, "wb") as f:
-                    f.write(full_bytes)
-                print(f"[LOCAL ONLY] Saved full page debug screenshot to: {local_file_path}")
-                
-                # Restore scroll to bottom
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight || document.documentElement.scrollHeight);")
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                print(f"Failed to capture local full page screenshot: {e}")
         
         # Click submit (Unicode-independent class selection)
         log_step("8. Clicking Submit button...")
@@ -440,8 +417,7 @@ async def fill_form_playwright(data: SubmitRequest):
             "success": True,
             "guestName": guest_name,
             "screenshot_filled": f"data:image/jpeg;base64,{screenshot_filled_b64}",
-            "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}",
-            "screenshot_full": f"data:image/jpeg;base64,{screenshot_full_b64}" if screenshot_full_b64 else None
+            "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}"
         }
         
     except Exception as e:
@@ -452,8 +428,7 @@ async def fill_form_playwright(data: SubmitRequest):
             "success": False,
             "error": f"Lỗi điền form: {str(e)}",
             "screenshot_filled": "",
-            "screenshot_submitted": "",
-            "screenshot_full": None
+            "screenshot_submitted": ""
         }
     finally:
         # Only close context (pages inside it are closed automatically)
