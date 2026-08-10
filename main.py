@@ -344,13 +344,9 @@ async def fill_form_playwright(data: SubmitRequest):
     try:
         page = await get_page()
         
-        # If the page is not on the form page or still loading, load it
-        if "formResponse" in page.url or await page.locator('.vHW8K').count() > 0 or page.url == "about:blank":
-            log_step("1. Navigating to Google Form...")
-            print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-            await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
-        else:
-            log_step("1. Using pre-loaded form page (instant)...")
+        log_step("1. Navigating to Google Form...")
+        print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
+        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
             
         global RUNNING_LOGS
         RUNNING_LOGS = []
@@ -467,10 +463,6 @@ async def fill_form_playwright(data: SubmitRequest):
         
         log_step("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
-        
-        # Start background navigation to pre-load form page for next guest
-        asyncio.create_task(pre_load_form_background())
-        
         return {
             "success": True,
             "guestName": guest_name,
@@ -491,10 +483,6 @@ async def fill_form_playwright(data: SubmitRequest):
             err_b64 = base64.b64encode(err_bytes).decode('utf-8')
         except Exception:
             err_b64 = ""
-            
-        # Start background navigation to pre-load form page for next guest
-        asyncio.create_task(pre_load_form_background())
-        
         return {
             "success": False,
             "error": f"Lỗi điền form: {str(e)}",
