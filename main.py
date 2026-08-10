@@ -164,9 +164,10 @@ async def test_browser():
 @app.get("/test-form")
 async def test_form():
     try:
-        browser = await get_browser()
+        # Emulate phone device but force scale factor to 1 to speed up screenshots
+        mobile_device = {**GLOBAL_PLAYWRIGHT.devices['Pixel 5'], "device_scale_factor": 1}
         context = await browser.new_context(
-            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
+            **mobile_device
         )
         page = await context.new_page()
         print("Test form: navigating to Google Form...")
@@ -264,17 +265,18 @@ async def fill_form_playwright(data: SubmitRequest):
     
     browser = await get_browser()
 
-    # Create a new isolated context for this request (with auto-healing fallback)
+    # Create a new isolated context for this request (with auto-healing fallback and scale factor override)
+    mobile_device = {**GLOBAL_PLAYWRIGHT.devices['Pixel 5'], "device_scale_factor": 1}
     try:
         context = await browser.new_context(
-            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
+            **mobile_device
         )
     except Exception as e:
         print(f"Failed to create context: {e}. Force relaunching browser singleton...")
         await force_relaunch_browser()
         browser = await get_browser()
         context = await browser.new_context(
-            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
+            **mobile_device
         )
         
     page = await context.new_page()
