@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+screenshots/
+tunnel_url.txt
+*.log
+post_response.html
+.git/
+.vscode/
