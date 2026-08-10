@@ -338,8 +338,7 @@ async def fill_form_playwright(data: SubmitRequest):
         log_step("3. Clicking dropdown subject...")
         container = page.locator('div[data-params*="117977297"]')
         await container.locator('div[role="listbox"]').first.click(force=True)
-        await asyncio.sleep(0.05)
-        # Select the target option (wait for options to be visible first)
+        await asyncio.sleep(0.3)
         # Select the target option (wait for options to be visible first)
         options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"]')
         if await options.count() == 0:
@@ -352,7 +351,7 @@ async def fill_form_playwright(data: SubmitRequest):
         else:
             # Fallback to second option (index 1) since index 0 is the "Choose/Chọn" placeholder
             await options.nth(1).evaluate("el => el.click()")
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.3)
         
         # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
         log_step("4. Filling check-in/out dates...")
