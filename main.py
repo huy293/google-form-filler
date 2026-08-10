@@ -9,11 +9,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
+from contextlib import asynccontextmanager
 
 # Configure console to support Vietnamese output
 sys.stdout.reconfigure(encoding='utf-8')
-
-app = FastAPI(title="Google Form Auto-Filler Web API")
 
 # Lists of names and addresses for realistic randomization
 REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
@@ -41,8 +40,8 @@ submit_lock = asyncio.Lock()
 GLOBAL_PLAYWRIGHT = None
 GLOBAL_BROWSER = None
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
     print("Initializing global Playwright and Chromium browser...")
     GLOBAL_PLAYWRIGHT = await async_playwright().start()
@@ -61,16 +60,18 @@ async def startup_event():
         args=launch_args
     )
     print("Global Chromium browser launched and ready!")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
+    
+    yield
+    
+    # Shutdown logic
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
         await GLOBAL_BROWSER.close()
     if GLOBAL_PLAYWRIGHT:
         print("Stopping global Playwright...")
         await GLOBAL_PLAYWRIGHT.stop()
+
+app = FastAPI(title="Google Form Auto-Filler Web API", lifespan=lifespan)
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
