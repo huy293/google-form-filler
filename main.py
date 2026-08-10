@@ -55,8 +55,10 @@ async def lifespan(app: FastAPI):
             "--disable-gpu"
         ]
         
+    # Platform-conditional headless: True on Linux/Render, False on Windows/Local
+    is_headless = os.name != 'nt'
     GLOBAL_BROWSER = await GLOBAL_PLAYWRIGHT.chromium.launch(
-        headless=True,
+        headless=is_headless,
         args=launch_args
     )
     print("Global Chromium browser launched and ready!")
@@ -283,9 +285,9 @@ async def fill_form_playwright(data: SubmitRequest):
         submit_btn = page.locator('div[role="button"].Y5sE8d').first
         await submit_btn.click()
         
-        # Wait for confirmation page
-        await page.wait_for_load_state("networkidle", timeout=12000)
-        await asyncio.sleep(1.0)
+        # Wait for confirmation message wrapper or "Submit another response" link
+        await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
+        await asyncio.sleep(0.5)
         
         # Take submitted screenshot
         submitted_bytes = await page.screenshot(type="png", full_page=False)
@@ -302,7 +304,7 @@ async def fill_form_playwright(data: SubmitRequest):
     except Exception as e:
         print(f"Error filling form for {guest_name}: {e}")
         try:
-            err_bytes = await page.screenshot(type="png")
+            err_bytes = await page.screenshot(type="png", timeout=5000)
             err_b64 = base64.b64encode(err_bytes).decode('utf-8')
             return {
                 "success": False,
