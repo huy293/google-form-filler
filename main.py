@@ -411,7 +411,10 @@ async def fill_form_playwright(data: SubmitRequest):
         }
     finally:
         # Only close context (pages inside it are closed automatically)
-        await context.close()
+        try:
+            await context.close()
+        except Exception:
+            pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
