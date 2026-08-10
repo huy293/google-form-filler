@@ -340,7 +340,11 @@ async def fill_form_playwright(data: SubmitRequest):
         await container.locator('div[role="listbox"]').first.click(force=True)
         await asyncio.sleep(0.05)
         # Select the target option (wait for options to be visible first)
-        options = page.locator('div[role="option"]')
+        # Select the target option (wait for options to be visible first)
+        options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"]')
+        if await options.count() == 0:
+            options = page.locator('div[role="option"]')
+            
         await options.first.wait_for(state="visible", timeout=5000)
         target_option = options.filter(has_text="Khách đến thăm")
         if await target_option.count() > 0:
