@@ -5,7 +5,7 @@ import base64
 import random
 import asyncio
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
@@ -35,6 +35,35 @@ ADDRESSES = [
 NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh", "Nhật Bản", "Đài Loan", "Trung Quốc"]
 
 submit_lock = None
+
+# Image cache to serve real URLs for mobile download compatibility
+IMAGE_CACHE = {}
+IMAGE_CACHE_KEYS = []
+MAX_CACHE_SIZE = 100
+
+def cache_image(img_b64: str) -> str:
+    if not img_b64:
+        return ""
+    import uuid
+    img_id = str(uuid.uuid4())
+    try:
+        # Convert base64 data URI (if present) or raw base64 back to binary bytes
+        if "," in img_b64:
+            base64_data = img_b64.split(",")[1]
+        else:
+            base64_data = img_b64
+        img_bytes = base64.b64decode(base64_data)
+        IMAGE_CACHE[img_id] = img_bytes
+        IMAGE_CACHE_KEYS.append(img_id)
+        
+        # Prune old cache items
+        while len(IMAGE_CACHE_KEYS) > MAX_CACHE_SIZE:
+            old_key = IMAGE_CACHE_KEYS.pop(0)
+            IMAGE_CACHE.pop(old_key, None)
+    except Exception as e:
+        print(f"Error caching image: {e}")
+        return ""
+    return img_id
 
 # Global browser singleton for speed and low RAM usage on Render
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform"
@@ -310,11 +339,14 @@ async def fill_form_playwright(data: SubmitRequest):
             log_step("11. Done!")
             print(f"Successfully submitted and captured screenshots for {guest_name}!")
             
+            img_filled_id = cache_image(screenshot_filled_b64)
+            img_submitted_id = cache_image(screenshot_submitted_b64)
+            
             return {
                 "success": True,
                 "guestName": guest_name,
-                "screenshot_filled": f"data:image/jpeg;base64,{screenshot_filled_b64}",
-                "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}"
+                "screenshot_filled": f"/api/image/{img_filled_id}" if img_filled_id else "",
+                "screenshot_submitted": f"/api/image/{img_submitted_id}" if img_submitted_id else ""
             }
             
     except Exception as e:
@@ -331,10 +363,11 @@ async def fill_form_playwright(data: SubmitRequest):
                 err_b64 = ""
         except Exception:
             err_b64 = ""
+        err_img_id = cache_image(err_b64) if err_b64 else ""
         return {
             "success": False,
             "error": f"Lỗi điền form: {str(e)}",
-            "screenshot_filled": f"data:image/jpeg;base64,{err_b64}" if err_b64 else "",
+            "screenshot_filled": f"/api/image/{err_img_id}" if err_img_id else "",
             "screenshot_submitted": ""
         }
     finally:
@@ -353,6 +386,18 @@ async def fill_form_playwright(data: SubmitRequest):
                 await browser.close()
             except Exception:
                 pass
+
+@app.get("/api/image/{img_id}")
+async def serve_cached_image(img_id: str):
+    if img_id not in IMAGE_CACHE:
+        raise HTTPException(status_code=404, detail="Image not found or expired")
+    return Response(
+        content=IMAGE_CACHE[img_id],
+        media_type="image/jpeg",
+        headers={
+            "Content-Disposition": f"attachment; filename=screenshot_{img_id}.jpg"
+        }
+    )
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
