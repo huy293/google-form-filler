@@ -81,6 +81,30 @@ async def get_index():
             return f.read()
     return "<h3>Error: static/index.html not found!</h3>"
 
+@app.get("/health")
+async def health_check():
+    global GLOBAL_BROWSER
+    return {
+        "status": "healthy",
+        "browser_initialized": GLOBAL_BROWSER is not None
+    }
+
+@app.get("/test-browser")
+async def test_browser():
+    global GLOBAL_BROWSER
+    if not GLOBAL_BROWSER:
+        return {"success": False, "error": "Browser not initialized"}
+    try:
+        context = await GLOBAL_BROWSER.new_context()
+        page = await context.new_page()
+        print("Test browser: navigating to example.com...")
+        await page.goto("https://example.com", wait_until="load", timeout=10000)
+        title = await page.title()
+        await context.close()
+        return {"success": True, "title": title}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 class SubmitRequest(BaseModel):
     unitCode: str
     guestId: str
