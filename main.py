@@ -323,8 +323,15 @@ async def fill_form_playwright(data: SubmitRequest):
         container = page.locator('div[data-params*="117977297"]')
         await container.locator('div[role="listbox"]').first.click(force=True)
         await asyncio.sleep(0.3)
-        # Language-independent option click: select the first option with force=True
-        await page.locator('div[role="option"]').first.click(force=True)
+        # Select the target option (wait for options to be visible first)
+        options = page.locator('div[role="option"]')
+        await options.first.wait_for(state="visible", timeout=5000)
+        target_option = options.filter(has_text="Khách đến thăm")
+        if await target_option.count() > 0:
+            await target_option.first.click(force=True)
+        else:
+            # Fallback to second option (index 1) since index 0 is the "Choose/Chọn" placeholder
+            await options.nth(1).click(force=True)
         await asyncio.sleep(0.1)
         
         # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
