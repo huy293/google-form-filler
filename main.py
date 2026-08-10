@@ -282,7 +282,7 @@ async def fill_form_playwright(data: SubmitRequest):
         # Settle and take first screenshot (filled form)
         await page.evaluate("window.scrollTo(0, 0);")
         await asyncio.sleep(0.3)
-        filled_bytes = await page.screenshot(type="png", full_page=True)
+        filled_bytes = await page.screenshot(type="png", full_page=False)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
