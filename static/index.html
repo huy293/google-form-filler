@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html2canvas for browser-side screenshots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.41.0/html2canvas.min.js"></script>
     <style>
         :root {
             --primary: #6c5ce7;
@@ -407,6 +409,172 @@
             cursor: pointer;
         }
 
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 15px;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Beautiful Ticket Receipt */
+        .receipt-card {
+            background: linear-gradient(135deg, #181530 0%, #0d0a1f 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 360px;
+            padding: 22px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        /* Dotted separator line to look like a physical ticket */
+        .receipt-divider {
+            border-top: 2px dashed rgba(255, 255, 255, 0.12);
+            margin: 18px 0;
+            position: relative;
+        }
+
+        .receipt-divider::before,
+        .receipt-divider::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            width: 20px;
+            height: 20px;
+            background: #06020f; /* Match outer body gradient dark background */
+            border-radius: 50%;
+        }
+
+        .receipt-divider::before { left: -33px; }
+        .receipt-divider::after { right: -33px; }
+
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .receipt-success-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 184, 148, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            border: 1px solid var(--success);
+        }
+
+        .receipt-success-icon svg {
+            width: 26px;
+            height: 26px;
+            fill: var(--success);
+        }
+
+        .receipt-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .receipt-subtitle {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .receipt-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .receipt-label {
+            color: var(--text-muted);
+        }
+
+        .receipt-value {
+            color: #fff;
+            font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
+
+        .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 12px;
+        }
+
+        /* Buttons on Modal */
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .btn-modal {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-modal-download {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 184, 148, 0.3);
+        }
+
+        .btn-modal-close {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-modal-download:hover { background: #009475; }
+        .btn-modal-close:hover { background: rgba(255, 255, 255, 0.12); }
+
     </style>
 </head>
 <body>
@@ -562,6 +730,76 @@
     <!-- Notification Toast -->
     <div id="toast" class="notification"></div>
 
+    <!-- Modal Receipt Overlay -->
+    <div id="receiptModal" class="modal-overlay">
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+            <div id="receiptCard" class="receipt-card">
+                <div class="receipt-header">
+                    <div class="receipt-success-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                    </div>
+                    <div class="receipt-title">RIVERGATE RESIDENCE</div>
+                    <div class="receipt-subtitle">Biên Nhận Đăng Ký Sảnh</div>
+                </div>
+                
+                <div class="receipt-divider"></div>
+                
+                <div class="receipt-body">
+                    <div class="receipt-row">
+                        <span class="receipt-label">Khách Hàng (Guest):</span>
+                        <span class="receipt-value" id="rcpGuestName">Bennan</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Năm Sinh (DOB):</span>
+                        <span class="receipt-value" id="rcpGuestBirth">2008</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Căn Hộ (Unit):</span>
+                        <span class="receipt-value" id="rcpUnitCode">A8.10</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Hộ Chiếu / CCCD:</span>
+                        <span class="receipt-value" id="rcpGuestId">PL4186782</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Quốc Tịch (Nation):</span>
+                        <span class="receipt-value" id="rcpNation">Nước Ngoài</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Ngày Đến (Checkin):</span>
+                        <span class="receipt-value" id="rcpCheckIn">10/08/2026 09:30</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Ngày Ra (Checkout):</span>
+                        <span class="receipt-value" id="rcpCheckOut">14/08/2026</span>
+                    </div>
+                    <div class="receipt-row" style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 8px;">
+                        <span class="receipt-label">Đại Diện Đăng Ký:</span>
+                        <span class="receipt-value" id="rcpRepName">MMM</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Số ĐT Đại Diện:</span>
+                        <span class="receipt-value" id="rcpRepPhone">05665313563</span>
+                    </div>
+                </div>
+                
+                <div class="receipt-divider"></div>
+                
+                <div class="receipt-footer">
+                    <div style="font-weight: 600; color: var(--success); margin-bottom: 2px;">✓ ĐÃ GỬI THÀNH CÔNG GOOGLE FORM</div>
+                    <div style="font-size: 9px; color: var(--text-muted);" id="rcpTimestamp">Đăng ký lúc: 10/08/2026 19:48</div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons" style="width: 100%; max-width: 360px;">
+                <button class="btn-modal btn-modal-download" onclick="downloadReceipt()">Tải Ảnh Biên Nhận (Lưu Điện Thoại)</button>
+                <button class="btn-modal btn-modal-close" onclick="closeReceiptModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Set default dates on load
         window.addEventListener('load', () => {
@@ -649,6 +887,10 @@
                 const result = await response.json();
                 if (response.ok && result.success) {
                     showNotification("Đã gửi thông tin đăng ký thành công!");
+                    
+                    // Show receipt modal
+                    showReceiptModal(payload);
+
                     // Clear guest inputs, keep representative details for convenience
                     document.getElementById('guestName').value = "";
                     document.getElementById('guestBirth').value = "";
@@ -785,6 +1027,64 @@
 
             showNotification(`Đã hoàn tất gửi danh sách! Thành công: ${successCount}/${total}`);
             btn.textContent = "Đã Hoàn Tất";
+        }
+
+        // Global variable to keep guest name for downloading
+        let currentReceiptGuestName = "Khach";
+
+        // Show receipt modal function
+        function showReceiptModal(data) {
+            currentReceiptGuestName = data["Họ và tên khách"] || "Khach";
+            
+            // Format dates from YYYY-MM-DD to DD/MM/YYYY
+            const formatDateDMY = (dateStr) => {
+                if (!dateStr) return "N/A";
+                const parts = dateStr.split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                return dateStr;
+            };
+
+            document.getElementById('rcpGuestName').textContent = data["Họ và tên khách"];
+            document.getElementById('rcpGuestBirth').textContent = data["Năm sinh"];
+            document.getElementById('rcpUnitCode').textContent = data["Mã Căn Hộ"];
+            document.getElementById('rcpGuestId').textContent = data["Hộ Chiếu_CCCD"];
+            document.getElementById('rcpNation').textContent = data["Quốc tịch"];
+            document.getElementById('rcpCheckIn').textContent = `${formatDateDMY(data["Ngày đến"])} ${data["Thời gian vào"]}`;
+            document.getElementById('rcpCheckOut').textContent = formatDateDMY(data["Ngày ra"]);
+            document.getElementById('rcpRepName').textContent = data["Họ và tên người đăng ký"];
+            document.getElementById('rcpRepPhone').textContent = data["Số điện thoại người đăng ký"];
+            
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('vi-VN');
+            const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('rcpTimestamp').textContent = `Đăng ký lúc: ${timeStr} - ${dateStr}`;
+
+            document.getElementById('receiptModal').classList.add('show');
+        }
+
+        // Close modal function
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').classList.remove('show');
+        }
+
+        // Download receipt card as image using html2canvas
+        function downloadReceipt() {
+            const card = document.getElementById('receiptCard');
+            const guest = currentReceiptGuestName.trim().replace(/\s+/g, '_');
+            
+            html2canvas(card, {
+                scale: 2, // Double quality for sharp text
+                backgroundColor: '#06020f', // Match background gradient
+                useCORS: true
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `BienNhan_${guest}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }).catch(err => {
+                console.error("Error generating screenshot:", err);
+                showNotification("Không thể chụp ảnh, vui lòng thử lại.", "error");
+            });
         }
     </script>
 </body>
