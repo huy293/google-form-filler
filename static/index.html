@@ -846,24 +846,24 @@
                         <div class="screenshot-img-wrapper">
                             <img class="screenshot-img" src="${imgFilled}" alt="Form đã điền" onclick="openModal(this.src)">
                         </div>
-                        <a href="${imgFilled}" download="DienForm_${sanitizedName}.jpg" class="btn-download-single">
+                        <button onclick="shareOrDownloadImage('${imgFilled}', 'DienForm_${sanitizedName}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
-                            Tải Ảnh Điền Form
-                        </a>
+                            Lưu Ảnh Điền Form
+                        </button>
                     </div>
                     <div class="screenshot-item">
                         <p>2. Biên nhận gửi thành công</p>
                         <div class="screenshot-img-wrapper">
                             <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi" onclick="openModal(this.src)">
                         </div>
-                        <a href="${imgSubmitted}" download="XacNhan_${sanitizedName}.jpg" class="btn-download-single">
+                        <button onclick="shareOrDownloadImage('${imgSubmitted}', 'XacNhan_${sanitizedName}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
-                            Tải Ảnh Biên Nhận
-                        </a>
+                            Lưu Ảnh Biên Nhận
+                        </button>
                     </div>
                 </div>
             `;
@@ -890,12 +890,12 @@
                         <div class="screenshot-img-wrapper">
                             <img class="screenshot-img" src="${imgError}" alt="Lỗi form" onclick="openModal(this.src)">
                         </div>
-                        <a href="${imgError}" download="LoiForm_${name.replace(/\s+/g, '_')}.jpg" class="btn-download-single">
+                        <button onclick="shareOrDownloadImage('${imgError}', 'LoiForm_${name.replace(/\s+/g, '_')}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
-                            Tải Ảnh Lỗi
-                        </a>
+                            Lưu Ảnh Lỗi
+                        </button>
                     </div>
                 </div>
             `;
@@ -924,6 +924,37 @@
                     document.body.removeChild(link);
                 }, idx * 300);
             });
+        }
+        
+        // Share image directly to Mobile OS Share Sheet (which contains "Save Image" to Photos app)
+        // or fallback to traditional direct download on Desktop.
+        async function shareOrDownloadImage(imgUrl, filename) {
+            try {
+                if (navigator.share && navigator.canShare) {
+                    const response = await fetch(imgUrl);
+                    const blob = await response.blob();
+                    const file = new File([blob], filename, { type: 'image/jpeg' });
+                    
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: filename,
+                            text: 'Lưu ảnh minh chứng đăng ký sảnh Rivergate'
+                        });
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("Share failed, falling back to download", e);
+            }
+            
+            // Fallback for Desktop
+            const link = document.createElement('a');
+            link.href = imgUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Modal Controls
