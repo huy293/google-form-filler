@@ -326,9 +326,13 @@ async def fill_form_playwright(data: SubmitRequest):
         
         for label, entry_id in fields_to_fill.items():
             val = row_data[label]
+            if not val:
+                continue
             container = page.locator(f'div[data-params*="{entry_id}"]')
-            input_el = container.locator('input[type="text"], textarea')
-            await input_el.first.fill(str(val))
+            if await container.count() > 0 and await container.first.is_visible():
+                input_el = container.locator('input[type="text"], textarea')
+                if await input_el.count() > 0 and await input_el.first.is_visible():
+                    await input_el.first.fill(str(val))
             
         # Dropdown: Chủ thể - 117977297
         log_step("3. Clicking dropdown subject...")
