@@ -592,22 +592,34 @@
 
         <!-- Card: Single Guest Input -->
         <section id="singleCard" class="card active">
-            <h2>Đăng ký thông tin khách đơn lẻ</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                <h2 style="margin-bottom: 0; border: none; padding: 0; font-size: 17px;">Đăng ký thông tin khách</h2>
+                <button type="button" class="tab-btn" style="flex: none; padding: 6px 12px; font-size: 12px; background: var(--primary-light); border: 1px solid var(--primary); width: auto;" onclick="triggerRandomize()">Tạo ngẫu nhiên</button>
+            </div>
             <form id="singleForm" onsubmit="handleSingleSubmit(event)">
                 <div class="form-group">
-                    <label>Người Đăng Ký (Full Name)</label>
-                    <input type="text" id="regName" required placeholder="Họ tên người đại diện đăng ký">
+                    <label>Người Đăng Ký (Full Name) - Ngẫu nhiên</label>
+                    <input type="text" id="regName" required placeholder="Tên người đại diện đăng ký">
                 </div>
                 <div class="form-group">
-                    <label>Số ĐT Người Đăng Ký (Phone)</label>
+                    <label>Số ĐT Người Đăng Ký (Phone) - Ngẫu nhiên</label>
                     <input type="tel" id="regPhone" required placeholder="Số điện thoại người đại diện">
                 </div>
                 
                 <div style="border-top: 1px dashed var(--glass-border); margin: 20px 0;"></div>
 
-                <div class="form-group">
-                    <label>Họ Tên Khách (Guest Name)</label>
-                    <input type="text" id="guestName" required placeholder="Họ tên khách vào căn hộ">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Giới Tính Khách</label>
+                        <select id="guestGender" onchange="onGenderChange()">
+                            <option value="female" selected>Nữ (Female)</option>
+                            <option value="male">Nam (Male)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Họ Tên Khách (Guest Name)</label>
+                        <input type="text" id="guestName" required placeholder="Họ tên khách">
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -801,27 +813,123 @@
     </div>
 
     <script>
-        // Set default dates on load
-        window.addEventListener('load', () => {
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 4); // Default Checkout is checkin + 4 days as sample
-            
-            // Format YYYY-MM-DD
-            const formatDate = (date) => {
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            };
+        // Lists of names and addresses for realistic randomization
+        const REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"];
+        const REP_FEMALE_NAMES = ["Nguyễn Thị Mai", "Trần Thu Trang", "Lê Linh Chi", "Phạm Hải Yến", "Nguyễn Khánh An", "Trần Mỹ Linh", "Đỗ Vân Anh", "Vũ Phương Thảo", "Lê Mai Hương", "Phạm Quỳnh Chi"];
+        
+        const GUEST_MALE_NAMES = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Nguyễn Văn Nam", "Trần Hoàng Bách", "Lê Tuấn Kiệt"];
+        const GUEST_FEMALE_NAMES = ["Agne", "Amada", "Mary", "Anna", "Linda", "Elizabeth", "Sarah", "Jessica", "Karen", "Lisa", "Helen", "Sandra", "Emily", "Trần Thu Thảo", "Nguyễn Mai Anh", "Lê Vy"];
+        
+        const ADDRESSES = [
+            "123 Nguyễn Trãi, Quận 5, TP.HCM",
+            "456 Lê Lợi, Quận 1, TP.HCM",
+            "789 Cách Mạng Tháng 8, Quận 3, TP.HCM",
+            "101 Trần Hưng Đạo, Quận 1, TP.HCM",
+            "Rivergate Residence, Quận 4, TP.HCM",
+            "202 Bến Vân Đồn, Quận 4, TP.HCM",
+            "15 Hoàng Diệu, Quận 4, TP.HCM",
+            "368 Nguyễn Thị Minh Khai, Quận 3, TP.HCM"
+        ];
+        
+        const NATIONALITIES = ["Lithuania", "USA", "Hàn Quốc", "Việt Nam", "Đức", "Anh", "Nhật Bản", "Đài Loan", "Trung Quốc"];
 
-            document.getElementById('checkInDate').value = formatDate(today);
-            document.getElementById('checkOutDate').value = formatDate(tomorrow);
+        // Random generator function
+        function triggerRandomize() {
+            // 1. Tên người đăng ký & Số điện thoại
+            const repGender = Math.random() > 0.5 ? "male" : "female";
+            const repName = repGender === "male" 
+                ? REP_MALE_NAMES[Math.floor(Math.random() * REP_MALE_NAMES.length)]
+                : REP_FEMALE_NAMES[Math.floor(Math.random() * REP_FEMALE_NAMES.length)];
+            document.getElementById('regName').value = repName;
             
-            // Default check-in time is current time
-            const hours = String(today.getHours()).padStart(2, '0');
-            const minutes = String(today.getMinutes()).padStart(2, '0');
+            // Random Vietnamese phone number (starts with 09, 03, 07, 08, 05)
+            const phonePrefixes = ["09", "03", "07", "08", "05"];
+            const prefix = phonePrefixes[Math.floor(Math.random() * phonePrefixes.length)];
+            const suffix = String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+            document.getElementById('regPhone').value = prefix + suffix;
+            
+            // 2. Họ tên khách (theo Giới tính đang chọn)
+            onGenderChange();
+            
+            // 3. Năm sinh (1960 - 2010)
+            const birthYear = Math.floor(Math.random() * (2010 - 1960 + 1)) + 1960;
+            document.getElementById('guestBirth').value = birthYear;
+            
+            // 4. Quốc tịch
+            const nation = NATIONALITIES[Math.floor(Math.random() * NATIONALITIES.length)];
+            document.getElementById('guestNation').value = nation;
+            
+            // 5. VISA & Hạn VISA (Random VISA number)
+            const visaLetters = ["V", "DL", "EV"];
+            const visaLetter = visaLetters[Math.floor(Math.random() * visaLetters.length)];
+            const visaNumber = String(Math.floor(Math.random() * 10000000)).padStart(7, '0');
+            document.getElementById('visa').value = visaLetter + visaNumber;
+            
+            // 6. Hạn VISA (1 to 3 months in the future)
+            const visaExp = new Date();
+            visaExp.setMonth(visaExp.getMonth() + Math.floor(Math.random() * 3) + 1);
+            document.getElementById('visaExpiry').value = formatDate(visaExp);
+            
+            // 7. Địa chỉ hộ khẩu
+            document.getElementById('address').value = ADDRESSES[Math.floor(Math.random() * ADDRESSES.length)];
+            
+            // 8. Ngày đến (Ngày hiện tại - getdate)
+            const today = new Date();
+            document.getElementById('checkInDate').value = formatDate(today);
+            
+            // 9. Giờ vào (Giờ hiện tại + 30 phút)
+            const timeIn = new Date();
+            timeIn.setMinutes(timeIn.getMinutes() + 30);
+            const hours = String(timeIn.getHours()).padStart(2, '0');
+            const minutes = String(timeIn.getMinutes()).padStart(2, '0');
             document.getElementById('checkInTime').value = `${hours}:${minutes}`;
+            
+            // 10. Ngày ra (Ngày đến + 1 đến 3 ngày)
+            const checkoutDays = Math.floor(Math.random() * 3) + 1; // 1 to 3 days
+            const checkOut = new Date(today);
+            checkOut.setDate(today.getDate() + checkoutDays);
+            document.getElementById('checkOutDate').value = formatDate(checkOut);
+            
+            // Note: Mã căn hộ (unitCode) và Hộ chiếu (guestId) sẽ để trống để người dùng nhập tay.
+        }
+
+        // Format Date to YYYY-MM-DD
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Handle Gender selection change
+        function onGenderChange() {
+            const gender = document.getElementById('guestGender').value;
+            let guestName = "";
+            if (gender === "male") {
+                guestName = GUEST_MALE_NAMES[Math.floor(Math.random() * GUEST_MALE_NAMES.length)];
+            } else {
+                guestName = GUEST_FEMALE_NAMES[Math.floor(Math.random() * GUEST_FEMALE_NAMES.length)];
+            }
+            document.getElementById('guestName').value = guestName;
+            
+            // Match nationality to name style (if names are foreign, default nation to foreign)
+            const isForeign = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Agne", "Amada", "Mary", "Anna", "Linda", "Elizabeth", "Sarah", "Jessica", "Karen", "Lisa", "Helen", "Sandra", "Emily"].includes(guestName);
+            if (isForeign) {
+                // Randomly select foreign nationality
+                const foreignNations = ["Lithuania", "USA", "Đức", "Anh", "Nhật Bản", "Hàn Quốc"];
+                document.getElementById('guestNation').value = foreignNations[Math.floor(Math.random() * foreignNations.length)];
+            } else {
+                document.getElementById('guestNation').value = "Việt Nam";
+            }
+        }
+
+        // Set default values on load
+        window.addEventListener('load', () => {
+            // Trigger random values for all fields except Unit Code & Passport
+            triggerRandomize();
+            // Clear Unit Code & Passport explicitly to ensure user fills them
+            document.getElementById('unitCode').value = "";
+            document.getElementById('guestId').value = "";
         });
 
         // Switch between single and bulk tabs
