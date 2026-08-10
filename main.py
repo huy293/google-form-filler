@@ -38,111 +38,12 @@ submit_lock = None
 
 # Global browser singleton for speed and low RAM usage on Render
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform"
-GLOBAL_PLAYWRIGHT = None
-GLOBAL_BROWSER = None
-GLOBAL_CONTEXT = None
-GLOBAL_PAGE = None
-
-async def get_browser():
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
-    if GLOBAL_PLAYWRIGHT is None:
-        print("Starting global Playwright...")
-        GLOBAL_PLAYWRIGHT = await async_playwright().start()
-        
-    is_broken = False
-    if GLOBAL_BROWSER is not None:
-        try:
-            # Test if browser is responsive by trying to open/close context
-            ctx = await GLOBAL_BROWSER.new_context()
-            await ctx.close()
-        except Exception:
-            print("Detected crashed or dead Chromium process. Re-launching...")
-            is_broken = True
-            
-    if GLOBAL_BROWSER is None or is_broken or not GLOBAL_BROWSER.is_connected():
-        print("Browser is disconnected or broken. Starting new Chromium instance...")
-        if GLOBAL_BROWSER:
-            try:
-                await GLOBAL_BROWSER.close()
-            except Exception:
-                pass
-            GLOBAL_BROWSER = None
-            
-        launch_args = []
-        if os.name != 'nt':  # Linux/Docker
-            launch_args = [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--single-process",
-                "--js-flags=--max-old-space-size=128",
-                "--disable-extensions",
-                "--disable-default-apps"
-            ]
-        is_headless = os.name != 'nt'
-        GLOBAL_BROWSER = await GLOBAL_PLAYWRIGHT.chromium.launch(
-            headless=is_headless,
-            args=launch_args
-        )
-        print("New Chromium instance started successfully!")
-        
-    return GLOBAL_BROWSER
-
-async def create_new_page():
-    browser = await get_browser()
-    context = await browser.new_context(
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        viewport={"width": 393, "height": 851},
-        is_mobile=True,
-        has_touch=True
-    )
-    # Bypassing webdriver detection to prevent Google throttling
-    await context.add_init_script("delete navigator.__proto__.webdriver;")
-    
-    page = await context.new_page()
-    
-    # Block fonts, analytics, and tracking scripts to optimize speed and CPU/RAM
-    async def handle_route(route):
-        url = route.request.url.lower()
-        resource_type = route.request.resource_type
-        if any(domain in url for domain in [
-            "google-analytics.com", "googletagmanager.com", "analytics", 
-            "collect?", "doubleclick.net", "googleadservices.com",
-            "fonts.googleapis.com", "fonts.gstatic.com"
-        ]) or resource_type in ["font"]:
-            await route.abort()
-        else:
-            await route.continue_()
-            
-    await page.route("**/*", handle_route)
-    return context, page
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm browser process on startup
-    try:
-        await get_browser()
-        print("Lifespan: Global browser pre-warmed successfully!")
-    except Exception as e:
-        print(f"Error pre-warming browser during lifespan: {e}")
-        
+    # Fully stateless container, no pre-warming to keep initial RAM footprint extremely low
     yield
-    
-    # Shutdown logic
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
-    if GLOBAL_BROWSER:
-        print("Closing global Chromium browser...")
-        try:
-            await GLOBAL_BROWSER.close()
-        except Exception:
-            pass
-    if GLOBAL_PLAYWRIGHT:
-        print("Stopping global Playwright...")
-        try:
-            await GLOBAL_PLAYWRIGHT.stop()
-        except Exception:
-            pass
 
 app = FastAPI(title="Google Form Auto-Filler Web API", lifespan=lifespan)
 
@@ -156,56 +57,9 @@ async def get_index():
 
 @app.get("/health")
 async def health_check():
-    global GLOBAL_BROWSER
-    is_ok = GLOBAL_BROWSER is not None and GLOBAL_BROWSER.is_connected()
     return {
-        "status": "healthy",
-        "browser_initialized": is_ok
+        "status": "healthy"
     }
-
-@app.get("/test-browser")
-async def test_browser():
-    try:
-        browser = await get_browser()
-        context = await browser.new_context()
-        page = await context.new_page()
-        print("Test browser: navigating to example.com...")
-        await page.goto("https://example.com", wait_until="load", timeout=10000)
-        title = await page.title()
-        await context.close()
-        return {"success": True, "title": title}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-@app.get("/test-form")
-async def test_form():
-    try:
-        # Emulate phone layout using custom lightweight viewport
-        context = await browser.new_context(
-            viewport={"width": 393, "height": 851},
-            is_mobile=True,
-            has_touch=True
-        )
-        page = await context.new_page()
-        print("Test form: navigating to Google Form...")
-        start_time = datetime.now()
-        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=20000)
-        elapsed = (datetime.now() - start_time).total_seconds()
-        title = await page.title()
-        
-        # Take a screenshot to see what it actually displays
-        screenshot_bytes = await page.screenshot(type="png", full_page=False)
-        screenshot_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-        
-        await context.close()
-        return {
-            "success": True,
-            "title": title,
-            "elapsed_seconds": elapsed,
-            "screenshot": f"data:image/png;base64,{screenshot_b64}"
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 RUNNING_LOGS = []
 
@@ -237,6 +91,10 @@ async def js_fill(locator, value):
     """, str(value))
 
 async def fill_form_playwright(data: SubmitRequest):
+    # Reset log array for this specific request immediately
+    global RUNNING_LOGS
+    RUNNING_LOGS = []
+    
     # 1. Generate random values
     rep_gender = random.choice(["male", "female"])
     rep_name = random.choice(REP_MALE_NAMES) if rep_gender == "male" else random.choice(REP_FEMALE_NAMES)
@@ -259,27 +117,19 @@ async def fill_form_playwright(data: SubmitRequest):
         guest_name = random.choice(GUEST_MALE_NAMES[13:]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[13:])
         nation = "Việt Nam"
         
-    birth_year = random.randint(1960, 2010)
-        
-    visa_letter = random.choice(["V", "DL", "EV"])
-    visa_number = "".join(random.choice("0123456789") for _ in range(7))
-    visa = visa_letter + visa_number
+    birth_year = random.randint(1980, 2003)
+    visa = "Miễn VISA" if is_vietnamese_cccd else "Du lịch / Tourism"
     
-    # Dates
     today = datetime.now()
-    check_in_date = today.strftime("%Y-%m-%d")
+    checkin_days = random.randint(0, 3)
+    checkout_days = checkin_days + random.randint(1, 5)
     
-    # Check-in time + 30 mins
-    time_in = today + timedelta(minutes=30)
-    check_in_time = time_in.strftime("%H:%M")
-    
-    # Check-out date + 1 to 3 days
-    checkout_days = random.randint(1, 3)
+    check_in_date = (today + timedelta(days=checkin_days)).strftime("%Y-%m-%d")
+    check_in_time = f"{random.randint(8, 20):02d}:{random.choice([0, 15, 30, 45]):02d}"
     check_out_date = (today + timedelta(days=checkout_days)).strftime("%Y-%m-%d")
     
     # Visa Expiry
     visa_exp_date = (today + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
-    
     address = random.choice(ADDRESSES)
     
     # Pack row data
@@ -301,146 +151,178 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
+    log_step("1. Preparing form page...")
+    
     context = None
     page = None
+    browser = None
+    
     try:
-        # Create fully optimized fresh page and context (100% memory safe)
-        context, page = await create_new_page()
-        
-        global RUNNING_LOGS
-        RUNNING_LOGS = []
-        
-        log_step("1. Preparing form page...")
-        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
-        
-        # 1. Fill basic text fields (including text-based Visa Expiry)
-        log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
-        fields_to_fill = {
-            "Họ và tên người đăng ký": "178418221",
-            "Số điện thoại người đăng ký": "2093418625",
-            "Họ và tên khách": "955098140",
-            "Năm sinh": "870248713",
-            "Mã Căn Hộ": "175253502",
-            "Hộ Chiếu_CCCD": "1388064463",
-            "VISA": "2009586042",
-            "Hạn VISA": "1149566062",
-            "Quốc tịch": "1515902134",
-            "Thông tin hộ khẩu": "2023500619"
-        }
-        
-        for label, entry_id in fields_to_fill.items():
-            val = row_data[label]
-            if not val:
-                continue
-            container = page.locator(f'div[data-params*="{entry_id}"]')
-            if await container.count() > 0 and await container.first.is_visible():
-                input_el = container.locator('input[type="text"], textarea')
-                if await input_el.count() > 0 and await input_el.first.is_visible():
-                    await js_fill(input_el, val)
+        async with async_playwright() as p:
+            launch_args = []
+            if os.name != 'nt':  # Linux/Docker
+                launch_args = [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--single-process",
+                    "--js-flags=--max-old-space-size=128",
+                    "--disable-extensions",
+                    "--disable-default-apps"
+                ]
+            is_headless = os.name != 'nt'
+            browser = await p.chromium.launch(
+                headless=is_headless,
+                args=launch_args
+            )
             
-        # Dropdown: Chủ thể - 117977297
-        log_step("3. Clicking dropdown subject...")
-        container = page.locator('div[data-params*="117977297"]')
-        await container.locator('div[role="listbox"]').first.click(force=True)
-        await asyncio.sleep(0.3)
-        # Select the target option (wait for options to be visible first)
-        options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"]')
-        if await options.count() == 0:
-            options = page.locator('div[role="option"]')
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                viewport={"width": 393, "height": 851},
+                is_mobile=True,
+                has_touch=True
+            )
+            # Bypassing webdriver detection
+            await context.add_init_script("delete navigator.__proto__.webdriver;")
             
-        await options.first.wait_for(state="visible", timeout=5000)
-        target_option = options.filter(has_text="Khách đến thăm")
-        if await target_option.count() > 0:
-            await target_option.first.evaluate("el => el.click()")
-        else:
-            # Fallback to second option (index 1) since index 0 is the "Choose/Chọn" placeholder
-            await options.nth(1).evaluate("el => el.click()")
-        await asyncio.sleep(0.3)
-        
-        # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
-        log_step("4. Filling check-in/out dates...")
-        date_fields = {
-            "Ngày đến": "1707290555",
-            "Ngày ra": "1028902383"
-        }
-        
-        for label, entry_id in date_fields.items():
-            val = row_data[label] # YYYY-MM-DD
-            container = page.locator(f'div[data-params*="{entry_id}"]')
-            await js_fill(container.locator('input[type="date"]'), val)
-                
-        # Time: Thời gian vào - 1773051864 (HH:MM)
-        log_step("5. Filling check-in time...")
-        time_val = row_data["Thời gian vào"]
-        container = page.locator('div[data-params*="1773051864"]')
-        native_time = container.locator('input[type="time"]')
-        if await native_time.count() > 0:
-            await js_fill(native_time, time_val)
-        else:
-            time_parts = time_val.split(':')
-            if len(time_parts) == 2:
-                hour, minute = time_parts[0], time_parts[1]
-                # Target inputs generally (type can be text, tel, or number on mobile layout)
-                await js_fill(container.locator('input').nth(0), hour)
-                await js_fill(container.locator('input').nth(1), minute)
+            page = await context.new_page()
             
-        # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
-        log_step("6. Checking compliance checkbox...")
-        container = page.locator('div[data-params*="1651751105"]')
-        await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
-        await asyncio.sleep(0.05)
-        
-        # Settle and take first screenshot (filled form as compressed JPEG)
-        log_step("7. Capturing filled form screenshot (scrolled to passport)...")
-        # Scroll the passport field to the bottom of the viewport
-        passport_container = page.locator('div[data-params*="1388064463"]')
-        if await passport_container.count() > 0:
-            await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'end' })")
-        await asyncio.sleep(0.3)
-        filled_bytes = await page.screenshot(type="jpeg", quality=35)
-        screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
-        
-        # Click submit (Unicode-independent class selection)
-        log_step("8. Clicking Submit button...")
-        submit_btn = page.locator('div[role="button"].Y5sE8d').first
-        await submit_btn.click()
-        
-        # Wait for confirmation message wrapper or "Submit another response" link
-        log_step("9. Waiting for confirmation page element...")
-        try:
-            await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=4000)
-        except Exception:
-            # Check if there are any error alert indicators on the form
-            err_count = await page.locator('div[role="alert"], .iv77ob').count()
-            if err_count > 0:
-                raise Exception("Sai định dạng Mã Căn Hộ hoặc thông tin nhập vào bị Google Form từ chối (Vui lòng điền đúng mẫu A-12.34)")
+            # Block fonts, analytics, and tracking scripts
+            async def handle_route(route):
+                url = route.request.url.lower()
+                resource_type = route.request.resource_type
+                if any(domain in url for domain in [
+                    "google-analytics.com", "googletagmanager.com", "analytics", 
+                    "collect?", "doubleclick.net", "googleadservices.com",
+                    "fonts.googleapis.com", "fonts.gstatic.com"
+                ]) or resource_type in ["font"]:
+                    await route.abort()
+                else:
+                    await route.continue_()
+            await page.route("**/*", handle_route)
+            
+            await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
+            
+            # 1. Fill basic text fields
+            log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
+            fields_to_fill = {
+                "Họ và tên người đăng ký": "178418221",
+                "Số điện thoại người đăng ký": "2093418625",
+                "Họ và tên khách": "955098140",
+                "Năm sinh": "870248713",
+                "Mã Căn Hộ": "175253502",
+                "Hộ Chiếu_CCCD": "1388064463",
+                "VISA": "2009586042",
+                "Hạn VISA": "1149566062",
+                "Quốc tịch": "1515902134",
+                "Thông tin hộ khẩu": "2023500619"
+            }
+            
+            for label, entry_id in fields_to_fill.items():
+                val = row_data[label]
+                if not val:
+                    continue
+                container = page.locator(f'div[data-params*="{entry_id}"]')
+                if await container.count() > 0 and await container.first.is_visible():
+                    input_el = container.locator('input[type="text"], textarea')
+                    if await input_el.count() > 0 and await input_el.first.is_visible():
+                        await js_fill(input_el, val)
+                        
+            # Dropdown: Chủ thể - 117977297
+            log_step("3. Clicking dropdown subject...")
+            container = page.locator('div[data-params*="117977297"]')
+            await container.locator('div[role="listbox"]').first.click(force=True)
+            await asyncio.sleep(0.3)
+            options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"]')
+            if await options.count() == 0:
+                options = page.locator('div[role="option"]')
+            await options.first.wait_for(state="visible", timeout=5000)
+            target_option = options.filter(has_text="Khách đến thăm")
+            if await target_option.count() > 0:
+                await target_option.first.evaluate("el => el.click()")
             else:
-                raise Exception("Không nhận được trang xác nhận gửi thành công từ Google Form (Hết thời gian chờ)")
-        await asyncio.sleep(0.1)
-        
-        # Take submitted screenshot (as compressed JPEG)
-        log_step("10. Capturing confirmation screenshot...")
-        submitted_bytes = await page.screenshot(type="jpeg", quality=35)
-        screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
-        
-        log_step("11. Done!")
-        print(f"Successfully submitted and captured screenshots for {guest_name}!")
-        
-        return {
-            "success": True,
-            "guestName": guest_name,
-            "screenshot_filled": f"data:image/jpeg;base64,{screenshot_filled_b64}",
-            "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}"
-        }
-        
+                await options.nth(1).evaluate("el => el.click()")
+            await asyncio.sleep(0.3)
+            
+            # Dates: Ngày đến, Ngày ra
+            log_step("4. Filling check-in/out dates...")
+            date_fields = {
+                "Ngày đến": "1707290555",
+                "Ngày ra": "1028902383"
+            }
+            for label, entry_id in date_fields.items():
+                val = row_data[label]
+                container = page.locator(f'div[data-params*="{entry_id}"]')
+                await js_fill(container.locator('input[type="date"]'), val)
+                
+            # Time: Thời gian vào
+            log_step("5. Filling check-in time...")
+            time_val = row_data["Thời gian vào"]
+            container = page.locator('div[data-params*="1773051864"]')
+            native_time = container.locator('input[type="time"]')
+            if await native_time.count() > 0:
+                await js_fill(native_time, time_val)
+            else:
+                time_parts = time_val.split(':')
+                if len(time_parts) == 2:
+                    hour, minute = time_parts[0], time_parts[1]
+                    await js_fill(container.locator('input').nth(0), hour)
+                    await js_fill(container.locator('input').nth(1), minute)
+                    
+            # Agreement checkbox
+            log_step("6. Checking compliance checkbox...")
+            container = page.locator('div[data-params*="1651751105"]')
+            await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
+            await asyncio.sleep(0.05)
+            
+            # Settle and take first screenshot
+            log_step("7. Capturing filled form screenshot (scrolled to passport)...")
+            passport_container = page.locator('div[data-params*="1388064463"]')
+            if await passport_container.count() > 0:
+                await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'end' })")
+            await asyncio.sleep(0.3)
+            filled_bytes = await page.screenshot(type="jpeg", quality=35)
+            screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
+            
+            # Click submit
+            log_step("8. Clicking Submit button...")
+            submit_btn = page.locator('div[role="button"].Y5sE8d').first
+            await submit_btn.click()
+            
+            # Wait for confirmation page
+            log_step("9. Waiting for confirmation page element...")
+            try:
+                await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=4000)
+            except Exception:
+                err_count = await page.locator('div[role="alert"], .iv77ob').count()
+                if err_count > 0:
+                    raise Exception("Sai định dạng Mã Căn Hộ hoặc thông tin nhập vào bị Google Form từ chối (Vui lòng điền đúng mẫu A-12.34)")
+                else:
+                    raise Exception("Không nhận được trang xác nhận gửi thành công từ Google Form (Hết thời gian chờ)")
+            await asyncio.sleep(0.1)
+            
+            # Take submitted screenshot
+            log_step("10. Capturing confirmation screenshot...")
+            submitted_bytes = await page.screenshot(type="jpeg", quality=35)
+            screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
+            
+            log_step("11. Done!")
+            print(f"Successfully submitted and captured screenshots for {guest_name}!")
+            
+            return {
+                "success": True,
+                "guestName": guest_name,
+                "screenshot_filled": f"data:image/jpeg;base64,{screenshot_filled_b64}",
+                "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}"
+            }
+            
     except Exception as e:
         err_msg = f"Error: {str(e)}"
         log_step(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
-        # Capture current page screenshot (showing the red validation error highlights) to return to UI
         try:
             if page:
-                # Scroll to top/bottom of form to capture the red error highlights clearly
                 await page.evaluate("window.scrollTo(0, 0);")
                 await asyncio.sleep(0.1)
                 err_bytes = await page.screenshot(type="jpeg", quality=30)
@@ -464,6 +346,11 @@ async def fill_form_playwright(data: SubmitRequest):
         if context:
             try:
                 await context.close()
+            except Exception:
+                pass
+        if browser:
+            try:
+                await browser.close()
             except Exception:
                 pass
 
