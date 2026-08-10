@@ -141,6 +141,13 @@ async def test_form():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+RUNNING_LOGS = []
+
+@app.get("/status")
+async def get_status():
+    global RUNNING_LOGS
+    return {"logs": RUNNING_LOGS}
+
 class SubmitRequest(BaseModel):
     unitCode: str
     guestId: str
@@ -218,11 +225,16 @@ async def fill_form_playwright(data: SubmitRequest):
     page = await context.new_page()
     
     try:
+        global RUNNING_LOGS
+        RUNNING_LOGS = []
+        
         # Go to form
+        RUNNING_LOGS.append("1. Navigating to Google Form...")
         print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
         await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
+        RUNNING_LOGS.append("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
         fields_to_fill = {
             "Họ và tên người đăng ký": "178418221",
             "Số điện thoại người đăng ký": "2093418625",
@@ -244,6 +256,7 @@ async def fill_form_playwright(data: SubmitRequest):
             await asyncio.sleep(0.05)
             
         # Dropdown: Chủ thể - 117977297
+        RUNNING_LOGS.append("3. Clicking dropdown subject...")
         container = page.locator('div[data-params*="117977297"]')
         await container.locator('div[role="listbox"]').first.click(force=True)
         await asyncio.sleep(0.3)
@@ -252,6 +265,7 @@ async def fill_form_playwright(data: SubmitRequest):
         await asyncio.sleep(0.1)
         
         # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
+        RUNNING_LOGS.append("4. Filling check-in/out dates...")
         date_fields = {
             "Ngày đến": "1707290555",
             "Ngày ra": "1028902383"
@@ -264,6 +278,7 @@ async def fill_form_playwright(data: SubmitRequest):
             await asyncio.sleep(0.05)
                 
         # Time: Thời gian vào - 1773051864 (HH:MM)
+        RUNNING_LOGS.append("5. Filling check-in time...")
         time_val = row_data["Thời gian vào"]
         time_parts = time_val.split(':')
         if len(time_parts) == 2:
@@ -275,28 +290,34 @@ async def fill_form_playwright(data: SubmitRequest):
             await asyncio.sleep(0.05)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
+        RUNNING_LOGS.append("6. Checking compliance checkbox...")
         container = page.locator('div[data-params*="1651751105"]')
         await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
         await asyncio.sleep(0.2)
         
         # Settle and take first screenshot (filled form)
+        RUNNING_LOGS.append("7. Capturing filled form screenshot...")
         await page.evaluate("window.scrollTo(0, 0);")
         await asyncio.sleep(0.3)
         filled_bytes = await page.screenshot(type="png", full_page=False)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
+        RUNNING_LOGS.append("8. Clicking Submit button...")
         submit_btn = page.locator('div[role="button"].Y5sE8d').first
         await submit_btn.click()
         
         # Wait for confirmation message wrapper or "Submit another response" link
+        RUNNING_LOGS.append("9. Waiting for confirmation page element...")
         await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
         await asyncio.sleep(0.5)
         
         # Take submitted screenshot
+        RUNNING_LOGS.append("10. Capturing confirmation screenshot...")
         submitted_bytes = await page.screenshot(type="png", full_page=False)
         screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
         
+        RUNNING_LOGS.append("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
         return {
             "success": True,
@@ -306,6 +327,8 @@ async def fill_form_playwright(data: SubmitRequest):
         }
         
     except Exception as e:
+        err_msg = f"Error: {str(e)}"
+        RUNNING_LOGS.append(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
         try:
             err_bytes = await page.screenshot(type="png", timeout=5000)
