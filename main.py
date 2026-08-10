@@ -105,6 +105,36 @@ async def test_browser():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+@app.get("/test-form")
+async def test_form():
+    global GLOBAL_BROWSER
+    if not GLOBAL_BROWSER:
+        return {"success": False, "error": "Browser not initialized"}
+    try:
+        context = await GLOBAL_BROWSER.new_context(
+            viewport={"width": 1280, "height": 900}
+        )
+        page = await context.new_page()
+        print("Test form: navigating to Google Form...")
+        start_time = datetime.now()
+        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=20000)
+        elapsed = (datetime.now() - start_time).total_seconds()
+        title = await page.title()
+        
+        # Take a screenshot to see what it actually displays
+        screenshot_bytes = await page.screenshot(type="png", full_page=False)
+        screenshot_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+        
+        await context.close()
+        return {
+            "success": True,
+            "title": title,
+            "elapsed_seconds": elapsed,
+            "screenshot": f"data:image/png;base64,{screenshot_b64}"
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 class SubmitRequest(BaseModel):
     unitCode: str
     guestId: str
