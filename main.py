@@ -210,6 +210,16 @@ class SubmitRequest(BaseModel):
     guestId: str
     gender: str
 
+async def js_fill(locator, value):
+    await locator.first.evaluate("""
+        (el, val) => {
+            el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+    """, str(value))
+
 async def fill_form_playwright(data: SubmitRequest):
     # 1. Generate random values
     rep_gender = random.choice(["male", "female"])
@@ -332,7 +342,7 @@ async def fill_form_playwright(data: SubmitRequest):
             if await container.count() > 0 and await container.first.is_visible():
                 input_el = container.locator('input[type="text"], textarea')
                 if await input_el.count() > 0 and await input_el.first.is_visible():
-                    await input_el.first.fill(str(val))
+                    await js_fill(input_el, val)
             
         # Dropdown: Chủ thể - 117977297
         log_step("3. Clicking dropdown subject...")
@@ -363,7 +373,7 @@ async def fill_form_playwright(data: SubmitRequest):
         for label, entry_id in date_fields.items():
             val = row_data[label] # YYYY-MM-DD
             container = page.locator(f'div[data-params*="{entry_id}"]')
-            await container.locator('input[type="date"]').fill(val)
+            await js_fill(container.locator('input[type="date"]'), val)
                 
         # Time: Thời gian vào - 1773051864 (HH:MM)
         log_step("5. Filling check-in time...")
@@ -371,14 +381,14 @@ async def fill_form_playwright(data: SubmitRequest):
         container = page.locator('div[data-params*="1773051864"]')
         native_time = container.locator('input[type="time"]')
         if await native_time.count() > 0:
-            await native_time.fill(time_val)
+            await js_fill(native_time, time_val)
         else:
             time_parts = time_val.split(':')
             if len(time_parts) == 2:
                 hour, minute = time_parts[0], time_parts[1]
                 # Target inputs generally (type can be text, tel, or number on mobile layout)
-                await container.locator('input').nth(0).fill(hour)
-                await container.locator('input').nth(1).fill(minute)
+                await js_fill(container.locator('input').nth(0), hour)
+                await js_fill(container.locator('input').nth(1), minute)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
         log_step("6. Checking compliance checkbox...")
@@ -393,7 +403,7 @@ async def fill_form_playwright(data: SubmitRequest):
         if await passport_container.count() > 0:
             await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'end' })")
         await asyncio.sleep(0.3)
-        filled_bytes = await page.screenshot(type="jpeg", quality=55)
+        filled_bytes = await page.screenshot(type="jpeg", quality=35)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
@@ -416,7 +426,7 @@ async def fill_form_playwright(data: SubmitRequest):
         
         # Take submitted screenshot (as compressed JPEG)
         log_step("10. Capturing confirmation screenshot...")
-        submitted_bytes = await page.screenshot(type="jpeg", quality=55)
+        submitted_bytes = await page.screenshot(type="jpeg", quality=35)
         screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
         
         log_step("11. Done!")
@@ -437,7 +447,7 @@ async def fill_form_playwright(data: SubmitRequest):
             # Scroll to top/bottom of form to capture the red error highlights clearly
             await page.evaluate("window.scrollTo(0, 0);")
             await asyncio.sleep(0.1)
-            err_bytes = await page.screenshot(type="jpeg", quality=50)
+            err_bytes = await page.screenshot(type="jpeg", quality=30)
             err_b64 = base64.b64encode(err_bytes).decode('utf-8')
         except Exception:
             err_b64 = ""
