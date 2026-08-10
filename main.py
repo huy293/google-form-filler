@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from playwright.async_api import async_playwright, devices
+from playwright.async_api import async_playwright
 from contextlib import asynccontextmanager
 
 # Configure console to support Vietnamese output
@@ -166,7 +166,7 @@ async def test_form():
     try:
         browser = await get_browser()
         context = await browser.new_context(
-            **devices['Pixel 5']
+            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
         )
         page = await context.new_page()
         print("Test form: navigating to Google Form...")
@@ -267,14 +267,14 @@ async def fill_form_playwright(data: SubmitRequest):
     # Create a new isolated context for this request (with auto-healing fallback)
     try:
         context = await browser.new_context(
-            **devices['Pixel 5']
+            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
         )
     except Exception as e:
         print(f"Failed to create context: {e}. Force relaunching browser singleton...")
         await force_relaunch_browser()
         browser = await get_browser()
         context = await browser.new_context(
-            **devices['Pixel 5']
+            **GLOBAL_PLAYWRIGHT.devices['Pixel 5']
         )
         
     page = await context.new_page()
