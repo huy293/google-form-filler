@@ -395,6 +395,18 @@ async def fill_form_playwright(data: SubmitRequest):
         filled_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
+        # If running locally (Windows / non-headless), save a full page debug screenshot to local disk
+        if os.name == 'nt':
+            try:
+                import os as local_os
+                local_os.makedirs("local_screenshots", exist_ok=True)
+                sanitized_name = guest_name.replace(" ", "_")
+                local_file_path = f"local_screenshots/full_filled_{sanitized_name}.png"
+                await page.screenshot(path=local_file_path, full_page=True)
+                print(f"[LOCAL ONLY] Saved full page debug screenshot to: {local_file_path}")
+            except Exception as e:
+                print(f"Failed to save local debug screenshot: {e}")
+        
         # Click submit (Unicode-independent class selection)
         log_step("8. Clicking Submit button...")
         submit_btn = page.locator('div[role="button"].Y5sE8d').first
