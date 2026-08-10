@@ -112,31 +112,31 @@ async def fill_form_playwright(data: SubmitRequest):
     }
     
     # Launch playwright
+    launch_args = []
+    if os.name != 'nt':  # Linux/Docker
+        launch_args = [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ]
+
     async with async_playwright() as p:
-        # Optimized launch args for 512MB RAM Render Free Plan
         browser = await p.chromium.launch(
             headless=True,
-            args=[
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--no-sandbox",
-                "--single-process",
-                "--no-zygote",
-                "--disable-setuid-sandbox"
-            ]
+            args=launch_args
         )
         context = await browser.new_context(
-            viewport={"width": 375, "height": 812}, # Mobile Viewport
-            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+            viewport={"width": 1280, "height": 900}
         )
         page = await context.new_page()
         
         try:
             # Go to form
             print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-            await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="networkidle", timeout=25000)
+            await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
             
-            # 1. Fill basic text fields
+            # 1. Fill basic text fields (including text-based Visa Expiry)
             fields_to_fill = {
                 "Họ và tên người đăng ký": "178418221",
                 "Số điện thoại người đăng ký": "2093418625",
@@ -145,6 +145,7 @@ async def fill_form_playwright(data: SubmitRequest):
                 "Mã Căn Hộ": "175253502",
                 "Hộ Chiếu_CCCD": "1388064463",
                 "VISA": "2009586042",
+                "Hạn VISA": "1149566062",
                 "Quốc tịch": "1515902134",
                 "Thông tin hộ khẩu": "2023500619"
             }
@@ -158,34 +159,23 @@ async def fill_form_playwright(data: SubmitRequest):
                 
             # Dropdown: Chủ thể - 117977297
             container = page.locator('div[data-params*="117977297"]')
-            await container.locator('div[role="listbox"]').first.click()
-            await asyncio.sleep(0.2)
-            option = page.locator('div[role="option"]').filter(has_text="Khách đến thăm").first
-            await option.click()
+            await container.locator('div[role="listbox"]').first.click(force=True)
+            await asyncio.sleep(0.3)
+            # Language-independent option click: select the first option with force=True
+            await page.locator('div[role="option"]').first.click(force=True)
             await asyncio.sleep(0.1)
             
-            # Dates and Times
+            # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
             date_fields = {
                 "Ngày đến": "1707290555",
-                "Ngày ra": "1028902383",
-                "Hạn VISA": "1149566062"
+                "Ngày ra": "1028902383"
             }
             
             for label, entry_id in date_fields.items():
                 val = row_data[label] # YYYY-MM-DD
-                parts = val.split('-')
-                if len(parts) == 3:
-                    year, month, day = parts[0], parts[1], parts[2]
-                    container = page.locator(f'div[data-params*="{entry_id}"]')
-                    
-                    day_input = container.locator('input[aria-label="Ngày"], input[aria-label="Day"]')
-                    month_input = container.locator('input[aria-label="Tháng"], input[aria-label="Month"]')
-                    year_input = container.locator('input[aria-label="Năm"], input[aria-label="Year"]')
-                    
-                    await day_input.fill(day)
-                    await month_input.fill(month)
-                    await year_input.fill(year)
-                    await asyncio.sleep(0.05)
+                container = page.locator(f'div[data-params*="{entry_id}"]')
+                await container.locator('input[type="date"]').fill(val)
+                await asyncio.sleep(0.05)
                     
             # Time: Thời gian vào - 1773051864 (HH:MM)
             time_val = row_data["Thời gian vào"]
@@ -193,16 +183,14 @@ async def fill_form_playwright(data: SubmitRequest):
             if len(time_parts) == 2:
                 hour, minute = time_parts[0], time_parts[1]
                 container = page.locator('div[data-params*="1773051864"]')
-                hour_input = container.locator('input[aria-label="Giờ"], input[aria-label="Hour"]')
-                minute_input = container.locator('input[aria-label="Phút"], input[aria-label="Minute"]')
-                await hour_input.fill(hour)
-                await minute_input.fill(minute)
+                # Fill hour and minute text inputs by index (language-independent)
+                await container.locator('input[type="text"]').nth(0).fill(hour)
+                await container.locator('input[type="text"]').nth(1).fill(minute)
                 await asyncio.sleep(0.05)
                 
-            # Agreement checkbox: Cam kết tuân thủ - 1651751105
+            # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
             container = page.locator('div[data-params*="1651751105"]')
-            checkbox = container.locator('div[role="checkbox"], div[role="radio"], span:has-text("Tôi đã đọc và đồng ý")').first
-            await checkbox.click()
+            await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
             await asyncio.sleep(0.2)
             
             # Settle and take first screenshot (filled form)
@@ -211,8 +199,8 @@ async def fill_form_playwright(data: SubmitRequest):
             filled_bytes = await page.screenshot(type="png", full_page=True)
             screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
             
-            # Click submit
-            submit_btn = page.locator('div[role="button"]:has-text("Gửi"), div[role="button"]:has-text("Submit")').first
+            # Click submit (Unicode-independent class selection)
+            submit_btn = page.locator('div[role="button"].Y5sE8d').first
             await submit_btn.click()
             
             # Wait for confirmation page
