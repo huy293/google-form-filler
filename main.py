@@ -229,17 +229,21 @@ async def fill_form_playwright(data: SubmitRequest):
     phone_suffix = "".join(random.choice("0123456789") for _ in range(8))
     rep_phone = phone_prefix + phone_suffix
     
+    # Check if the guestId is a Vietnamese CCCD (exactly 12 digits)
+    guest_id_clean = "".join(c for c in data.guestId if c.isdigit())
+    is_vietnamese_cccd = len(guest_id_clean) == 12 and data.guestId.isdigit()
+    
+    is_foreign = not is_vietnamese_cccd
     gender = data.gender.lower()
-    guest_name = random.choice(GUEST_MALE_NAMES) if gender == "male" else random.choice(GUEST_FEMALE_NAMES)
     
-    birth_year = random.randint(1960, 2010)
-    
-    # Check if guest name is foreign
-    is_foreign = guest_name in GUEST_MALE_NAMES[:13] or guest_name in GUEST_FEMALE_NAMES[:13]
     if is_foreign:
-        nation = random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc"])
+        guest_name = random.choice(GUEST_MALE_NAMES[:13]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[:13])
+        nation = random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
     else:
+        guest_name = random.choice(GUEST_MALE_NAMES[13:]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[13:])
         nation = "Việt Nam"
+        
+    birth_year = random.randint(1960, 2010)
         
     visa_letter = random.choice(["V", "DL", "EV"])
     visa_number = "".join(random.choice("0123456789") for _ in range(7))
