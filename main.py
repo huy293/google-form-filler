@@ -42,6 +42,30 @@ GLOBAL_PLAYWRIGHT = None
 GLOBAL_BROWSER = None
 GLOBAL_CONTEXT = None
 GLOBAL_PAGE = None
+GLOBAL_FORM_CLEAN = False
+
+async def reset_to_form_page(page):
+    global GLOBAL_FORM_CLEAN
+    try:
+        link = page.locator('a[href*="viewform"]').first
+        if await link.count() > 0 and await link.is_visible():
+            print("Resetting form by clicking 'Gửi câu trả lời khác' link...")
+            await link.click()
+            await page.locator('form').first.wait_for(state="visible", timeout=4000)
+            GLOBAL_FORM_CLEAN = True
+            return True
+    except Exception as e:
+        print(f"Failed to click reset link: {e}")
+        
+    try:
+        print("Navigating to Google Form URL...")
+        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=15000)
+        GLOBAL_FORM_CLEAN = True
+        return True
+    except Exception as e:
+        print(f"Failed to navigate to form: {e}")
+        GLOBAL_FORM_CLEAN = False
+        return False
 
 async def get_browser():
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
@@ -122,17 +146,11 @@ async def get_page():
             ]) else route.continue_()
         )
         await GLOBAL_PAGE.goto(FORM_URL, wait_until="load", timeout=25000)
+        global GLOBAL_FORM_CLEAN
+        GLOBAL_FORM_CLEAN = True
         
     return GLOBAL_PAGE
 
-async def pre_load_form_background():
-    global GLOBAL_PAGE
-    if GLOBAL_PAGE:
-        try:
-            print("Background pre-loading form page for next guest...")
-            await GLOBAL_PAGE.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
-        except Exception as e:
-            print(f"Error in background form pre-load: {e}")
 
 async def force_relaunch_browser():
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
@@ -341,12 +359,23 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
+    global GLOBAL_FORM_CLEAN
     try:
         page = await get_page()
         
-        log_step("1. Navigating to Google Form...")
-        print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+        log_step("1. Preparing form page...")
+        if not GLOBAL_FORM_CLEAN:
+            # Check if page is currently on confirmation page, if so reset by clicking
+            success_link = page.locator('a[href*="viewform"]').first
+            if await success_link.count() > 0 and await success_link.is_visible():
+                await reset_to_form_page(page)
+            else:
+                # Reload or go to form URL to get a fresh clean form
+                print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
+                await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+                GLOBAL_FORM_CLEAN = True
+        else:
+            print("Form page is already clean in browser context. Proceeding instantly...")
             
         global RUNNING_LOGS
         RUNNING_LOGS = []
@@ -463,6 +492,16 @@ async def fill_form_playwright(data: SubmitRequest):
         
         log_step("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
+        
+        # Mark form as dirty
+        GLOBAL_FORM_CLEAN = False
+        
+        # Reset the form immediately to prepare it for the next request in line
+        try:
+            await reset_to_form_page(page)
+        except Exception as e:
+            print(f"Could not reset form page: {e}")
+            
         return {
             "success": True,
             "guestName": guest_name,
@@ -471,6 +510,7 @@ async def fill_form_playwright(data: SubmitRequest):
         }
         
     except Exception as e:
+        GLOBAL_FORM_CLEAN = False  # Mark dirty on exception since page state is unknown
         err_msg = f"Error: {str(e)}"
         log_step(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
