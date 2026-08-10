@@ -42,22 +42,6 @@ GLOBAL_PLAYWRIGHT = None
 GLOBAL_BROWSER = None
 GLOBAL_CONTEXT = None
 GLOBAL_PAGE = None
-GLOBAL_FORM_CLEAN = False
-
-async def reset_to_form_page(page):
-    global GLOBAL_FORM_CLEAN
-    try:
-        link = page.locator('a[href*="viewform"]').first
-        if await link.count() > 0 and await link.is_visible():
-            print("Resetting form by clicking 'Gửi câu trả lời khác' link...")
-            await link.click()
-            await page.locator('form').first.wait_for(state="visible", timeout=4000)
-            GLOBAL_FORM_CLEAN = True
-            return True
-    except Exception as e:
-        print(f"Failed to click reset link: {e}")
-    GLOBAL_FORM_CLEAN = False
-    return False
 
 async def get_browser():
     global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
@@ -105,82 +89,36 @@ async def get_browser():
         
     return GLOBAL_BROWSER
 
-async def get_page():
-    global GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
+async def create_new_page():
     browser = await get_browser()
-    
-    is_page_broken = False
-    if GLOBAL_PAGE is not None:
-        try:
-            # Test if page is responsive
-            await GLOBAL_PAGE.title()
-        except Exception:
-            is_page_broken = True
-            
-    if GLOBAL_PAGE is None or is_page_broken:
-        print("Initializing new global page and pre-loading Google Form...")
-        if GLOBAL_CONTEXT:
-            try:
-                await GLOBAL_CONTEXT.close()
-            except Exception:
-                pass
-        GLOBAL_CONTEXT = await browser.new_context(
-            viewport={"width": 393, "height": 851},
-            is_mobile=True,
-            has_touch=True
-        )
-        GLOBAL_PAGE = await GLOBAL_CONTEXT.new_page()
-        # Block analytics
-        await GLOBAL_PAGE.route("**/*", lambda route: 
-            route.abort() if any(domain in route.request.url for domain in [
-                "google-analytics.com", "googletagmanager.com", "analytics", 
-                "collect?", "doubleclick.net", "googleadservices.com"
-            ]) else route.continue_()
-        )
-        await GLOBAL_PAGE.goto(FORM_URL, wait_until="load", timeout=25000)
-        global GLOBAL_FORM_CLEAN
-        GLOBAL_FORM_CLEAN = True
-        
-    return GLOBAL_PAGE
-
-
-async def force_relaunch_browser():
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
-    print("Force relaunching browser singleton...")
-    GLOBAL_PAGE = None
-    GLOBAL_CONTEXT = None
-    if GLOBAL_BROWSER:
-        try:
-            await GLOBAL_BROWSER.close()
-        except Exception:
-            pass
-        GLOBAL_BROWSER = None
-    if GLOBAL_PLAYWRIGHT:
-        try:
-            await GLOBAL_PLAYWRIGHT.stop()
-        except Exception:
-            pass
-        GLOBAL_PLAYWRIGHT = None
-    await get_page()
+    context = await browser.new_context(
+        viewport={"width": 393, "height": 851},
+        is_mobile=True,
+        has_touch=True
+    )
+    page = await context.new_page()
+    # Block analytics and tracker scripts to optimize speed and CPU RAM
+    await page.route("**/*", lambda route: 
+        route.abort() if any(domain in route.request.url for domain in [
+            "google-analytics.com", "googletagmanager.com", "analytics", 
+            "collect?", "doubleclick.net", "googleadservices.com"
+        ]) else route.continue_()
+    )
+    return context, page
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm browser and pre-load page on startup
+    # Pre-warm browser process on startup
     try:
-        await get_page()
-        print("Lifespan: Global page pre-loaded successfully!")
+        await get_browser()
+        print("Lifespan: Global browser pre-warmed successfully!")
     except Exception as e:
-        print(f"Error pre-warming page during lifespan: {e}")
+        print(f"Error pre-warming browser during lifespan: {e}")
         
     yield
     
     # Shutdown logic
-    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER, GLOBAL_CONTEXT, GLOBAL_PAGE
-    if GLOBAL_CONTEXT:
-        try:
-            await GLOBAL_CONTEXT.close()
-        except Exception:
-            pass
+    global GLOBAL_PLAYWRIGHT, GLOBAL_BROWSER
     if GLOBAL_BROWSER:
         print("Closing global Chromium browser...")
         try:
@@ -351,26 +289,17 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    global GLOBAL_FORM_CLEAN
+    context = None
+    page = None
     try:
-        page = await get_page()
+        # Create fresh page and context
+        context, page = await create_new_page()
         
-        log_step("1. Preparing form page...")
-        if not GLOBAL_FORM_CLEAN:
-            # Check if page is currently on confirmation page, if so reset by clicking
-            success_link = page.locator('a[href*="viewform"]').first
-            if await success_link.count() > 0 and await success_link.is_visible():
-                await reset_to_form_page(page)
-            else:
-                # Reload or go to form URL to get a fresh clean form
-                print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-                await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
-                GLOBAL_FORM_CLEAN = True
-        else:
-            print("Form page is already clean in browser context. Proceeding instantly...")
-            
         global RUNNING_LOGS
         RUNNING_LOGS = []
+        
+        log_step("1. Preparing form page...")
+        await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
         log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
@@ -485,15 +414,6 @@ async def fill_form_playwright(data: SubmitRequest):
         log_step("11. Done!")
         print(f"Successfully submitted and captured screenshots for {guest_name}!")
         
-        # Mark form as dirty
-        GLOBAL_FORM_CLEAN = False
-        
-        # Reset the form immediately to prepare it for the next request in line
-        try:
-            await reset_to_form_page(page)
-        except Exception as e:
-            print(f"Could not reset form page: {e}")
-            
         return {
             "success": True,
             "guestName": guest_name,
@@ -502,17 +422,19 @@ async def fill_form_playwright(data: SubmitRequest):
         }
         
     except Exception as e:
-        GLOBAL_FORM_CLEAN = False  # Mark dirty on exception since page state is unknown
         err_msg = f"Error: {str(e)}"
         log_step(err_msg)
         print(f"Error filling form for {guest_name}: {e}")
         # Capture current page screenshot (showing the red validation error highlights) to return to UI
         try:
-            # Scroll to top/bottom of form to capture the red error highlights clearly
-            await page.evaluate("window.scrollTo(0, 0);")
-            await asyncio.sleep(0.1)
-            err_bytes = await page.screenshot(type="jpeg", quality=30)
-            err_b64 = base64.b64encode(err_bytes).decode('utf-8')
+            if page:
+                # Scroll to top/bottom of form to capture the red error highlights clearly
+                await page.evaluate("window.scrollTo(0, 0);")
+                await asyncio.sleep(0.1)
+                err_bytes = await page.screenshot(type="jpeg", quality=30)
+                err_b64 = base64.b64encode(err_bytes).decode('utf-8')
+            else:
+                err_b64 = ""
         except Exception:
             err_b64 = ""
         return {
@@ -522,7 +444,16 @@ async def fill_form_playwright(data: SubmitRequest):
             "screenshot_submitted": ""
         }
     finally:
-        pass
+        if page:
+            try:
+                await page.close()
+            except Exception:
+                pass
+        if context:
+            try:
+                await context.close()
+            except Exception:
+                pass
 
 @app.post("/api/submit")
 async def submit_to_google_form(request: SubmitRequest):
