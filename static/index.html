@@ -459,6 +459,59 @@
             border-color: var(--error);
         }
 
+        /* Live Console Log Styling */
+        .log-display-box {
+            margin-top: 20px;
+            background: #121216;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .log-header {
+            background: #1c1c22;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .log-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .log-dot.red { background: #ff5f56; }
+        .log-dot.yellow { background: #ffbd2e; }
+        .log-dot.green { background: #27c93f; }
+
+        .log-title {
+            margin-left: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
+        .log-console {
+            margin: 0;
+            padding: 14px;
+            max-height: 180px;
+            overflow-y: auto;
+            color: #50fa7b;
+            background: #121216;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            text-align: left;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 <body>
@@ -503,6 +556,17 @@
                     <span>Tiến Trình Đăng Ký</span>
                 </div>
                 <div id="statusList"></div>
+                
+                <!-- Live Console Log Display -->
+                <div class="log-display-box" id="logDisplayBox" style="display: none;">
+                    <div class="log-header">
+                        <div class="log-dot red"></div>
+                        <div class="log-dot yellow"></div>
+                        <div class="log-dot green"></div>
+                        <span class="log-title">Live Server Console</span>
+                    </div>
+                    <pre class="log-console" id="logConsole">Khởi động...</pre>
+                </div>
             </div>
         </main>
 
@@ -629,6 +693,12 @@
             resultsContainer.innerHTML = "";
             document.getElementById('resultsSection').style.display = 'none';
 
+            // Show live console box
+            const logDisplayBox = document.getElementById('logDisplayBox');
+            const logConsole = document.getElementById('logConsole');
+            logDisplayBox.style.display = 'block';
+            logConsole.textContent = "Đang kết nối tới máy chủ Render...\n";
+
             // Create progress indicators
             guestsData.forEach((g, index) => {
                 const item = document.createElement('div');
@@ -640,6 +710,22 @@
                 `;
                 statusList.appendChild(item);
             });
+
+            // Start log polling interval (fetch every 600ms)
+            const logInterval = setInterval(async () => {
+                try {
+                    const logRes = await fetch('/status');
+                    if (logRes.ok) {
+                        const logData = await logRes.json();
+                        if (logData.logs && logData.logs.length > 0) {
+                            logConsole.textContent = logData.logs.join('\n');
+                            logConsole.scrollTop = logConsole.scrollHeight; // Auto scroll to bottom
+                        }
+                    }
+                } catch (e) {
+                    console.error("Lỗi khi đọc log từ server:", e);
+                }
+            }, 600);
 
             // Process sequentially to protect server RAM
             for (let i = 0; i < guestsData.length; i++) {
@@ -683,6 +769,19 @@
                     console.error(err);
                 }
             }
+
+            // Stop log polling interval
+            clearInterval(logInterval);
+            
+            // Get final logs one last time
+            try {
+                const logRes = await fetch('/status');
+                if (logRes.ok) {
+                    const logData = await logRes.json();
+                    logConsole.textContent = logData.logs.join('\n');
+                    logConsole.scrollTop = logConsole.scrollHeight;
+                }
+            } catch (e) {}
 
             // Finished all
             btnSubmit.disabled = false;
