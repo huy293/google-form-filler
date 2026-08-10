@@ -46,8 +46,25 @@ async def get_browser():
         print("Starting global Playwright...")
         GLOBAL_PLAYWRIGHT = await async_playwright().start()
         
-    if GLOBAL_BROWSER is None or not GLOBAL_BROWSER.is_connected():
-        print("Browser is disconnected or not started. Starting new Chromium instance...")
+    is_broken = False
+    if GLOBAL_BROWSER is not None:
+        try:
+            # Test if browser is responsive by trying to open/close context
+            ctx = await GLOBAL_BROWSER.new_context()
+            await ctx.close()
+        except Exception:
+            print("Detected crashed or dead Chromium process. Re-launching...")
+            is_broken = True
+            
+    if GLOBAL_BROWSER is None or is_broken or not GLOBAL_BROWSER.is_connected():
+        print("Browser is disconnected or broken. Starting new Chromium instance...")
+        if GLOBAL_BROWSER:
+            try:
+                await GLOBAL_BROWSER.close()
+            except Exception:
+                pass
+            GLOBAL_BROWSER = None
+            
         launch_args = []
         if os.name != 'nt':  # Linux/Docker
             launch_args = [
@@ -326,8 +343,9 @@ async def fill_form_playwright(data: SubmitRequest):
             time_parts = time_val.split(':')
             if len(time_parts) == 2:
                 hour, minute = time_parts[0], time_parts[1]
-                await container.locator('input[type="text"]').nth(0).fill(hour)
-                await container.locator('input[type="text"]').nth(1).fill(minute)
+                # Target inputs generally (type can be text, tel, or number on mobile layout)
+                await container.locator('input').nth(0).fill(hour)
+                await container.locator('input').nth(1).fill(minute)
         await asyncio.sleep(0.05)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
