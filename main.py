@@ -296,7 +296,7 @@ async def fill_form_playwright(data: SubmitRequest):
         # Go to form
         RUNNING_LOGS.append("1. Navigating to Google Form...")
         print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
-        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="load", timeout=25000)
+        await page.goto("https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYymwh5-Yw34HeK45HAp3ohog/viewform", wait_until="domcontentloaded", timeout=20000)
         
         # 1. Fill basic text fields (including text-based Visa Expiry)
         RUNNING_LOGS.append("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
@@ -318,13 +318,12 @@ async def fill_form_playwright(data: SubmitRequest):
             container = page.locator(f'div[data-params*="{entry_id}"]')
             input_el = container.locator('input[type="text"], textarea')
             await input_el.first.fill(str(val))
-            await asyncio.sleep(0.05)
             
         # Dropdown: Chủ thể - 117977297
         RUNNING_LOGS.append("3. Clicking dropdown subject...")
         container = page.locator('div[data-params*="117977297"]')
         await container.locator('div[role="listbox"]').first.click(force=True)
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.05)
         # Select the target option (wait for options to be visible first)
         options = page.locator('div[role="option"]')
         await options.first.wait_for(state="visible", timeout=5000)
@@ -334,7 +333,7 @@ async def fill_form_playwright(data: SubmitRequest):
         else:
             # Fallback to second option (index 1) since index 0 is the "Choose/Chọn" placeholder
             await options.nth(1).click(force=True)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         
         # Dates: Ngày đến, Ngày ra (Native HTML5 inputs)
         RUNNING_LOGS.append("4. Filling check-in/out dates...")
@@ -347,7 +346,6 @@ async def fill_form_playwright(data: SubmitRequest):
             val = row_data[label] # YYYY-MM-DD
             container = page.locator(f'div[data-params*="{entry_id}"]')
             await container.locator('input[type="date"]').fill(val)
-            await asyncio.sleep(0.05)
                 
         # Time: Thời gian vào - 1773051864 (HH:MM)
         RUNNING_LOGS.append("5. Filling check-in time...")
@@ -363,19 +361,18 @@ async def fill_form_playwright(data: SubmitRequest):
                 # Target inputs generally (type can be text, tel, or number on mobile layout)
                 await container.locator('input').nth(0).fill(hour)
                 await container.locator('input').nth(1).fill(minute)
-        await asyncio.sleep(0.05)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
         RUNNING_LOGS.append("6. Checking compliance checkbox...")
         container = page.locator('div[data-params*="1651751105"]')
         await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.05)
         
         # Settle and take first screenshot (filled form as compressed JPEG)
         RUNNING_LOGS.append("7. Capturing filled form screenshot...")
         await page.evaluate("window.scrollTo(0, 0);")
         await asyncio.sleep(0.1)
-        filled_bytes = await page.screenshot(type="jpeg", quality=70)
+        filled_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
@@ -386,11 +383,11 @@ async def fill_form_playwright(data: SubmitRequest):
         # Wait for confirmation message wrapper or "Submit another response" link
         RUNNING_LOGS.append("9. Waiting for confirmation page element...")
         await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         
         # Take submitted screenshot (as compressed JPEG)
         RUNNING_LOGS.append("10. Capturing confirmation screenshot...")
-        submitted_bytes = await page.screenshot(type="jpeg", quality=70)
+        submitted_bytes = await page.screenshot(type="jpeg", quality=50)
         screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
         
         RUNNING_LOGS.append("11. Done!")
