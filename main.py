@@ -283,6 +283,14 @@ async def fill_form_playwright(data: SubmitRequest):
         global RUNNING_LOGS
         RUNNING_LOGS = []
         
+        # Block analytics and ads to speed up load time
+        await page.route("**/*", lambda route: 
+            route.abort() if any(domain in route.request.url for domain in [
+                "google-analytics.com", "googletagmanager.com", "analytics", 
+                "collect?", "doubleclick.net", "googleadservices.com"
+            ]) else route.continue_()
+        )
+
         # Go to form
         RUNNING_LOGS.append("1. Navigating to Google Form...")
         print(f"Navigating to form for guest {guest_name} ({data.guestId})...")
@@ -354,11 +362,11 @@ async def fill_form_playwright(data: SubmitRequest):
         await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
         await asyncio.sleep(0.2)
         
-        # Settle and take first screenshot (filled form)
+        # Settle and take first screenshot (filled form as compressed JPEG)
         RUNNING_LOGS.append("7. Capturing filled form screenshot...")
         await page.evaluate("window.scrollTo(0, 0);")
-        await asyncio.sleep(0.3)
-        filled_bytes = await page.screenshot(type="png", full_page=False)
+        await asyncio.sleep(0.1)
+        filled_bytes = await page.screenshot(type="jpeg", quality=70)
         screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
         
         # Click submit (Unicode-independent class selection)
@@ -371,9 +379,9 @@ async def fill_form_playwright(data: SubmitRequest):
         await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=10000)
         await asyncio.sleep(0.5)
         
-        # Take submitted screenshot
+        # Take submitted screenshot (as compressed JPEG)
         RUNNING_LOGS.append("10. Capturing confirmation screenshot...")
-        submitted_bytes = await page.screenshot(type="png", full_page=False)
+        submitted_bytes = await page.screenshot(type="jpeg", quality=70)
         screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
         
         RUNNING_LOGS.append("11. Done!")
@@ -381,8 +389,8 @@ async def fill_form_playwright(data: SubmitRequest):
         return {
             "success": True,
             "guestName": guest_name,
-            "screenshot_filled": f"data:image/png;base64,{screenshot_filled_b64}",
-            "screenshot_submitted": f"data:image/png;base64,{screenshot_submitted_b64}"
+            "screenshot_filled": f"data:image/jpeg;base64,{screenshot_filled_b64}",
+            "screenshot_submitted": f"data:image/jpeg;base64,{screenshot_submitted_b64}"
         }
         
     except Exception as e:
