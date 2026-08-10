@@ -760,7 +760,9 @@
                     const link = document.createElement('a');
                     link.href = img.data;
                     link.download = img.filename;
+                    document.body.appendChild(link); // Attach to DOM for mobile and modern browser compatibility
                     link.click();
+                    document.body.removeChild(link); // Clean up immediately after click
                 }, idx * 250); // 250ms interval
             });
         }
