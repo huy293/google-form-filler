@@ -318,14 +318,17 @@ async def fill_form_playwright(data: SubmitRequest):
         # Time: Thời gian vào - 1773051864 (HH:MM)
         RUNNING_LOGS.append("5. Filling check-in time...")
         time_val = row_data["Thời gian vào"]
-        time_parts = time_val.split(':')
-        if len(time_parts) == 2:
-            hour, minute = time_parts[0], time_parts[1]
-            container = page.locator('div[data-params*="1773051864"]')
-            # Fill hour and minute text inputs by index (language-independent)
-            await container.locator('input[type="text"]').nth(0).fill(hour)
-            await container.locator('input[type="text"]').nth(1).fill(minute)
-            await asyncio.sleep(0.05)
+        container = page.locator('div[data-params*="1773051864"]')
+        native_time = container.locator('input[type="time"]')
+        if await native_time.count() > 0:
+            await native_time.fill(time_val)
+        else:
+            time_parts = time_val.split(':')
+            if len(time_parts) == 2:
+                hour, minute = time_parts[0], time_parts[1]
+                await container.locator('input[type="text"]').nth(0).fill(hour)
+                await container.locator('input[type="text"]').nth(1).fill(minute)
+        await asyncio.sleep(0.05)
             
         # Agreement checkbox: Cam kết tuân thủ - 1651751105 (first checkbox click with force=True)
         RUNNING_LOGS.append("6. Checking compliance checkbox...")
