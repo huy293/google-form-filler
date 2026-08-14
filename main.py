@@ -103,8 +103,8 @@ async def get_index(request: Request):
         login_path = os.path.join(os.path.dirname(__file__), "static", "fake502.html")
         if os.path.exists(login_path):
             with open(login_path, "r", encoding="utf-8") as f:
-                return HTMLResponse(content=f.read(), status_code=502)
-        return HTMLResponse(content="<h1>502 Bad Gateway</h1>", status_code=502)
+                return HTMLResponse(content=f.read(), status_code=200)
+        return HTMLResponse(content="<h1>502 Bad Gateway</h1>", status_code=200)
     index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
