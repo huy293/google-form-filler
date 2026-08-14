@@ -1,9 +1,14 @@
 import os
 import io
 import sys
+import asyncio
+
+# Fix Playwright subprocess on Windows (ProactorEventLoop required)
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import base64
 import random
-import asyncio
 import secrets
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Response, Request

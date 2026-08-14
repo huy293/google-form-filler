@@ -1018,6 +1018,7 @@
                 try {
                     const response = await fetch('/api/submit', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
                         },
