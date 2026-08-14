@@ -331,8 +331,8 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     btn.textContent = "Thành công! Đang chuyển hướng...";
-                    // Immediately reload page to load Rivergate App with active session
-                    window.location.reload();
+                    // Use timestamp to bypass Cloudflare edge cache
+                    window.location.href = '/?auth=' + Date.now();
                 } else {
                     errBox.textContent = data.detail || "Tài khoản hoặc mật khẩu không chính xác!";
                     errBox.style.display = 'block';
