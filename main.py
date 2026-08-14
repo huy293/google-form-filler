@@ -4,8 +4,9 @@ import sys
 import base64
 import random
 import asyncio
+import secrets
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
@@ -13,6 +14,21 @@ from contextlib import asynccontextmanager
 
 # Configure console to support Vietnamese output
 sys.stdout.reconfigure(encoding='utf-8')
+
+# Authentication credentials & persistent session storage
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+VALID_PASSWORDS = {os.environ.get("ADMIN_PASS", "admin"), "admin", "admin123", "123456", "rivergate123"}
+ACTIVE_SESSIONS = set()
+
+def is_authenticated(request: Request) -> bool:
+    session_id = request.cookies.get("session_id")
+    if session_id and session_id in ACTIVE_SESSIONS:
+        return True
+    return False
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 # Lists of names and addresses for realistic randomization
 REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
@@ -77,7 +93,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Google Form Auto-Filler Web API", lifespan=lifespan)
 
 @app.get("/", response_class=HTMLResponse)
-async def get_index():
+async def get_index(request: Request):
+    if not is_authenticated(request):
+        login_path = os.path.join(os.path.dirname(__file__), "static", "fake502.html")
+        if os.path.exists(login_path):
+            with open(login_path, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read(), status_code=502)
+        return HTMLResponse(content="<h1>502 Bad Gateway</h1>", status_code=502)
     index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
@@ -86,9 +108,30 @@ async def get_index():
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy"
-    }
+    return {"status": "healthy"}
+
+@app.post("/api/login")
+async def api_login(data: LoginRequest, response: Response):
+    if data.username == ADMIN_USER and data.password in VALID_PASSWORDS:
+        session_id = secrets.token_urlsafe(32)
+        ACTIVE_SESSIONS.add(session_id)
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 30  # 30 days persistent
+        )
+        return {"success": True}
+    raise HTTPException(status_code=401, detail="Sai tài khoản hoặc mật khẩu!")
+
+@app.post("/api/logout")
+async def api_logout(request: Request, response: Response):
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        ACTIVE_SESSIONS.discard(session_id)
+    response.delete_cookie("session_id")
+    return {"success": True}
 
 RUNNING_LOGS = []
 
@@ -400,12 +443,14 @@ async def serve_cached_image(img_id: str):
     )
 
 @app.post("/api/submit")
-async def submit_to_google_form(request: SubmitRequest):
+async def submit_to_google_form(submit_request: SubmitRequest, request: Request):
+    if not is_authenticated(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     global submit_lock
     if submit_lock is None:
         submit_lock = asyncio.Lock()
     async with submit_lock:
-        result = await fill_form_playwright(request)
+        result = await fill_form_playwright(submit_request)
         return result
 
 if __name__ == "__main__":

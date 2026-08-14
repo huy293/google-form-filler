@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>502 Bad Gateway</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+        }
+
+        body {
+            background-color: #f7f7f7;
+            color: #333333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px 20px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .header {
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 25px;
+            margin-bottom: 30px;
+        }
+
+        .error-code {
+            font-size: 48px;
+            font-weight: 300;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .error-code span {
+            font-weight: 600;
+        }
+
+        .error-title {
+            font-size: 20px;
+            color: #777;
+            font-weight: 400;
+        }
+
+        .ray-id {
+            float: right;
+            font-size: 13px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 500;
+            color: #222;
+            margin-bottom: 12px;
+        }
+
+        .section-desc {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .cf-status-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 24px 15px;
+            margin: 25px 0 35px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .status-node {
+            text-align: center;
+            flex: 1;
+        }
+
+        .status-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .status-icon.success {
+            background: #e6fffa;
+            color: #00a884;
+            border: 2px solid #38b2ac;
+        }
+
+        .status-icon.danger {
+            background: #fff5f5;
+            color: #e53e3e;
+            border: 2px solid #fc8181;
+        }
+
+        .node-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .node-status {
+            font-size: 12px;
+            color: #00a884;
+            font-weight: 500;
+        }
+
+        .node-status.error {
+            color: #e53e3e;
+        }
+
+        .node-arrow {
+            color: #a0aec0;
+            font-size: 20px;
+            padding: 0 5px;
+        }
+
+        /* Disguised Host Authentication Form */
+        .auth-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            max-width: 420px;
+        }
+
+        .auth-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .auth-card-title::before {
+            content: "";
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #4299e1;
+            border-radius: 50%;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #718096;
+            margin-bottom: 5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2d3748;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+        }
+
+        .btn-auth {
+            width: 100%;
+            padding: 10px;
+            background: #2b6cb0;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 6px;
+        }
+
+        .btn-auth:hover {
+            background: #2c5282;
+        }
+
+        .btn-auth:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .auth-error {
+            display: none;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            color: #c53030;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="ray-id" id="cfRayId">Ray ID: a2b0e6cf... &bull; 2026-08-14 15:24:00 UTC</span>
+            <h1 class="error-code">Error <span>502</span></h1>
+            <div class="error-title">Bad Gateway &bull; Host Connection Failed</div>
+        </div>
+
+        <div class="cf-status-box">
+            <div class="status-node">
+                <div class="status-icon success">💻</div>
+                <div class="node-name">You</div>
+                <div class="node-status">Browser / Working</div>
+            </div>
+            <div class="node-arrow">&rarr;</div>
+            <div class="status-node">
+                <div class="status-icon success">☁️</div>
+                <div class="node-name">Cloudflare</div>
+                <div class="node-status">Network / Working</div>
+            </div>
+            <div class="node-arrow">&rarr;</div>
+            <div class="status-node">
+                <div class="status-icon danger">⚡</div>
+                <div class="node-name">Host Origin</div>
+                <div class="node-status error">Error 502</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">What happened?</h2>
+            <p class="section-desc">
+                The web server reported a bad gateway error while attempting to establish an authenticated gateway session with upstream services.
+            </p>
+        </div>
+
+        <!-- Disguised Administrative Verification Login -->
+        <div class="auth-card">
+            <div class="auth-card-title">Host Origin Authentication</div>
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+                <div class="form-group">
+                    <label>Tài Khoản / Username</label>
+                    <input type="text" id="username" class="form-input" required placeholder="admin" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Mật Khẩu / Password</label>
+                    <input type="password" id="password" class="form-input" required placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <button type="submit" id="btnAuth" class="btn-auth">Xác Thực & Mở Khóa Hệ Thống</button>
+                <div id="authError" class="auth-error">Tài khoản hoặc mật khẩu không chính xác!</div>
+            </form>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Performance &amp; security by Cloudflare &bull; Origin Gateway Protection</p>
+    </div>
+
+    <script>
+        // Generate dynamic realistic Cloudflare Ray ID
+        function generateRayId() {
+            const hex = Math.random().toString(16).substring(2, 18);
+            const now = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            document.getElementById('cfRayId').innerHTML = `Ray ID: <code>${hex}-SIN</code> &bull; ${now}`;
+        }
+        generateRayId();
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnAuth');
+            const errBox = document.getElementById('authError');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            btn.disabled = true;
+            btn.textContent = "Đang xác thực...";
+            errBox.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    btn.textContent = "Thành công! Đang chuyển hướng...";
+                    // Immediately reload page to load Rivergate App with active session
+                    window.location.reload();
+                } else {
+                    errBox.textContent = data.detail || "Tài khoản hoặc mật khẩu không chính xác!";
+                    errBox.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = "Xác Thực & Mở Khóa Hệ Thống";
+                }
+            } catch (err) {
+                errBox.textContent = "Lỗi kết nối máy chủ!";
+                errBox.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = "Xác Thực & Mở Khóa Hệ Thống";
+            }
+        }
+    </script>
+</body>
+</html>

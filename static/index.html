@@ -401,21 +401,24 @@
         }
 
         /* Modal for zooming images */
+        /* Fullscreen Lightbox Carousel Modal */
         .modal {
             display: none;
             position: fixed;
-            z-index: 2000;
-            top: 0;
+            z-index: 10000;
             left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(9, 7, 20, 0.95);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background-color: rgba(5, 4, 12, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             justify-content: center;
             align-items: center;
             opacity: 0;
             transition: opacity 0.25s ease;
+            box-sizing: border-box;
+            padding: 10px;
         }
 
         .modal.show {
@@ -423,41 +426,247 @@
             opacity: 1;
         }
 
-        .modal-content {
-            max-width: 95%;
-            max-height: 90vh;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-            border: 1px solid var(--card-border);
-            transform: scale(0.9);
+        .lightbox-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 900px;
+            height: 94vh;
+            max-height: 94vh;
+            background: #110e24;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px var(--primary-glow);
+            transform: scale(0.95);
             transition: transform 0.25s ease;
         }
 
-        .modal.show .modal-content {
+        .modal.show .lightbox-container {
             transform: scale(1);
         }
 
-        .modal-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
+        .lightbox-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .lightbox-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .lightbox-caption {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lightbox-counter {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 3px 10px;
+            background: var(--primary-light);
+            color: #a29bfe;
+            border-radius: 12px;
+            border: 1px solid var(--primary-glow);
+            white-space: nowrap;
+        }
+
+        .lightbox-close {
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--card-border);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             color: #fff;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 20px;
             cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .lightbox-close:hover {
+            background: var(--error);
+            color: #fff;
+            border-color: var(--error);
+        }
+
+        .lightbox-stage {
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #080611;
+            user-select: none;
+            touch-action: pan-y;
+        }
+
+        .lightbox-img-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .lightbox-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .lightbox-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: rgba(18, 14, 38, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+
+        .lightbox-nav-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .lightbox-nav-btn.prev {
+            left: 14px;
+        }
+
+        .lightbox-nav-btn.next {
+            right: 14px;
+        }
+
+        .lightbox-bottombar {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .lightbox-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 20px;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 14px var(--primary-glow);
+            font-family: inherit;
+        }
+
+        .lightbox-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px var(--primary-glow);
+            background: #7c6df8;
+        }
+
+        .lightbox-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+        }
+
+        .screenshot-img-wrapper {
+            position: relative;
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .zoom-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(18, 14, 38, 0.85);
+            backdrop-filter: blur(4px);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: none;
             transition: all 0.2s;
         }
 
-        .modal-close:hover {
-            background: var(--error-light);
-            color: var(--error);
-            border-color: var(--error);
+        .screenshot-img-wrapper:hover .zoom-badge {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 600px) {
+            .lightbox-container {
+                height: 98vh;
+                max-height: 98vh;
+                border-radius: 12px;
+            }
+            .lightbox-topbar {
+                padding: 10px 14px;
+            }
+            .lightbox-caption {
+                font-size: 13px;
+            }
+            .lightbox-nav-btn {
+                width: 38px;
+                height: 38px;
+            }
+            .lightbox-nav-btn.prev { left: 8px; }
+            .lightbox-nav-btn.next { right: 8px; }
+            .lightbox-bottombar {
+                padding: 10px 14px;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .lightbox-action-btn {
+                width: 100%;
+            }
+            .lightbox-hint {
+                font-size: 11px;
+            }
         }
 
         /* Live Console Log Styling */
@@ -618,10 +827,48 @@
         </section>
     </div>
 
-    <!-- Modal for Zoomed Image -->
-    <div id="imageModal" class="modal" onclick="closeModal()">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
-        <img class="modal-content" id="modalImg" onclick="event.stopPropagation()">
+    <!-- Lightbox Carousel Modal -->
+    <div id="imageModal" class="modal" onclick="closeLightbox(event)">
+        <div class="lightbox-container" onclick="event.stopPropagation()">
+            <!-- Top Bar -->
+            <div class="lightbox-topbar">
+                <div class="lightbox-info">
+                    <span id="lightboxCaption" class="lightbox-caption">Ảnh Minh Chứng</span>
+                    <span id="lightboxCounter" class="lightbox-counter">1 / 1</span>
+                </div>
+                <button type="button" class="lightbox-close" onclick="closeLightbox()" title="Đóng">&times;</button>
+            </div>
+
+            <!-- Image Viewport & Navigation -->
+            <div class="lightbox-stage" id="lightboxStage">
+                <button type="button" class="lightbox-nav-btn prev" onclick="prevSlide()" title="Ảnh trước (Phím ←)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                    </svg>
+                </button>
+
+                <div class="lightbox-img-wrapper">
+                    <img id="modalImg" class="lightbox-img" src="" alt="Ảnh minh chứng">
+                </div>
+
+                <button type="button" class="lightbox-nav-btn next" onclick="nextSlide()" title="Ảnh kế tiếp (Phím →)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Bottom Actions -->
+            <div class="lightbox-bottombar">
+                <button type="button" class="lightbox-action-btn" onclick="saveCurrentSlideImage()">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px; vertical-align: middle;">
+                        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+                    </svg>
+                    Lưu Ảnh Này Vào Máy
+                </button>
+                <div class="lightbox-hint">💡 Vuốt sang trái/phải trên màn hình để lướt ảnh</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -831,9 +1078,20 @@
             
             const sanitizedName = name.replace(/\s+/g, '_');
             
-            // Save to global list for batch download
-            allImages.push({ data: imgFilled, filename: `DienForm_${sanitizedName}.jpg` });
-            allImages.push({ data: imgSubmitted, filename: `XacNhan_${sanitizedName}.jpg` });
+            // Save to global list with titles for Carousel Navigation
+            const filledIdx = allImages.length;
+            allImages.push({ 
+                data: imgFilled, 
+                filename: `DienForm_${sanitizedName}.jpg`,
+                title: `Khách: ${name} (${passport}) - 1. Form đã điền`
+            });
+            
+            const submittedIdx = allImages.length;
+            allImages.push({ 
+                data: imgSubmitted, 
+                filename: `XacNhan_${sanitizedName}.jpg`,
+                title: `Khách: ${name} (${passport}) - 2. Biên nhận gửi`
+            });
             
             box.innerHTML = `
                 <div class="guest-result-header">
@@ -843,10 +1101,11 @@
                 <div class="screenshot-grid">
                     <div class="screenshot-item">
                         <p>1. Form đã điền thông tin</p>
-                        <div class="screenshot-img-wrapper">
-                            <img class="screenshot-img" src="${imgFilled}" alt="Form đã điền" onclick="openModal(this.src)">
+                        <div class="screenshot-img-wrapper" onclick="openLightbox(${filledIdx})">
+                            <img class="screenshot-img" src="${imgFilled}" alt="Form đã điền">
+                            <div class="zoom-badge">🔍 Xem Full Slide</div>
                         </div>
-                        <button onclick="shareOrDownloadImage('${imgFilled}', 'DienForm_${sanitizedName}.jpg')" class="btn-download-single">
+                        <button type="button" onclick="shareOrDownloadImage('${imgFilled}', 'DienForm_${sanitizedName}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
@@ -855,10 +1114,11 @@
                     </div>
                     <div class="screenshot-item">
                         <p>2. Biên nhận gửi thành công</p>
-                        <div class="screenshot-img-wrapper">
-                            <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi" onclick="openModal(this.src)">
+                        <div class="screenshot-img-wrapper" onclick="openLightbox(${submittedIdx})">
+                            <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi">
+                            <div class="zoom-badge">🔍 Xem Full Slide</div>
                         </div>
-                        <button onclick="shareOrDownloadImage('${imgSubmitted}', 'XacNhan_${sanitizedName}.jpg')" class="btn-download-single">
+                        <button type="button" onclick="shareOrDownloadImage('${imgSubmitted}', 'XacNhan_${sanitizedName}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
@@ -879,6 +1139,13 @@
             box.className = 'guest-result-box';
             box.style.borderColor = 'rgba(255, 118, 117, 0.3)';
             
+            const errIdx = allImages.length;
+            allImages.push({
+                data: imgError,
+                filename: `LoiForm_${name.replace(/\s+/g, '_')}.jpg`,
+                title: `Khách: ${name} (${passport}) - Lỗi: ${errorMsg}`
+            });
+            
             box.innerHTML = `
                 <div class="guest-result-header">
                     <span>Khách: ${name} (${passport})</span>
@@ -886,11 +1153,12 @@
                 </div>
                 <div class="screenshot-grid">
                     <div class="screenshot-item">
-                        <p>Ảnh sự cố (Phóng to)</p>
-                        <div class="screenshot-img-wrapper">
-                            <img class="screenshot-img" src="${imgError}" alt="Lỗi form" onclick="openModal(this.src)">
+                        <p>Ảnh sự cố</p>
+                        <div class="screenshot-img-wrapper" onclick="openLightbox(${errIdx})">
+                            <img class="screenshot-img" src="${imgError}" alt="Lỗi form">
+                            <div class="zoom-badge">🔍 Xem Full Slide</div>
                         </div>
-                        <button onclick="shareOrDownloadImage('${imgError}', 'LoiForm_${name.replace(/\s+/g, '_')}.jpg')" class="btn-download-single">
+                        <button type="button" onclick="shareOrDownloadImage('${imgError}', 'LoiForm_${name.replace(/\s+/g, '_')}.jpg')" class="btn-download-single">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                             </svg>
@@ -909,7 +1177,7 @@
             // Show alert or instruction for mobile users
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (isMobile) {
-                alert("Trên ĐIỆN THOẠI:\nTrình duyệt chặn việc tự động tải xuống nhiều tệp cùng lúc vì lý do bảo mật.\n\nBạn hãy bấm vào nút màu xám 'Tải Ảnh Điền Form' hoặc 'Tải Ảnh Biên Nhận' nằm bên dưới mỗi hình để lưu từng ảnh trực tiếp về máy nhé!");
+                alert("Trên ĐIỆN THOẠI:\nTrình duyệt chặn việc tự động tải xuống nhiều tệp cùng lúc vì lý do bảo mật.\n\nBạn hãy bấm vào nút màu xám 'Lưu Ảnh...' nằm bên dưới mỗi hình hoặc chạm vào ảnh để xem slide và lưu trực tiếp về máy nhé!");
                 return;
             }
             
@@ -957,20 +1225,100 @@
             document.body.removeChild(link);
         }
 
-        // Modal Controls
-        function openModal(imgSrc) {
+        // ================= Lightbox Slider Logic =================
+        let currentSlideIndex = 0;
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        function openLightbox(index) {
+            if (!allImages || allImages.length === 0) return;
+            currentSlideIndex = index;
+            updateLightboxSlide();
+            
             const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImg');
-            modalImg.src = imgSrc;
             modal.classList.add('show');
             document.body.style.overflow = 'hidden'; // Lock background scroll
+            
+            // Bind keyboard arrows
+            window.addEventListener('keydown', handleLightboxKeydown);
         }
 
-        function closeModal() {
+        function closeLightbox(e) {
+            if (e && e.target && e.target.classList && !e.target.classList.contains('modal') && !e.target.classList.contains('lightbox-close')) {
+                return;
+            }
             const modal = document.getElementById('imageModal');
             modal.classList.remove('show');
             document.body.style.overflow = ''; // Unlock background scroll
+            window.removeEventListener('keydown', handleLightboxKeydown);
         }
+
+        function updateLightboxSlide() {
+            if (!allImages || allImages.length === 0) return;
+            if (currentSlideIndex < 0) currentSlideIndex = allImages.length - 1;
+            if (currentSlideIndex >= allImages.length) currentSlideIndex = 0;
+
+            const item = allImages[currentSlideIndex];
+            const modalImg = document.getElementById('modalImg');
+            
+            // Smooth transition animation
+            modalImg.style.opacity = '0.3';
+            modalImg.style.transform = 'scale(0.97)';
+            
+            setTimeout(() => {
+                modalImg.src = item.data;
+                modalImg.alt = item.title;
+                modalImg.style.opacity = '1';
+                modalImg.style.transform = 'scale(1)';
+            }, 100);
+
+            document.getElementById('lightboxCaption').textContent = item.title;
+            document.getElementById('lightboxCounter').textContent = `${currentSlideIndex + 1} / ${allImages.length}`;
+        }
+
+        function nextSlide() {
+            currentSlideIndex++;
+            updateLightboxSlide();
+        }
+
+        function prevSlide() {
+            currentSlideIndex--;
+            updateLightboxSlide();
+        }
+
+        function saveCurrentSlideImage() {
+            if (!allImages || allImages.length === 0) return;
+            const item = allImages[currentSlideIndex];
+            shareOrDownloadImage(item.data, item.filename);
+        }
+
+        function handleLightboxKeydown(e) {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+            if (e.key === 'Escape') closeLightbox();
+        }
+
+        // Swipe Gestures for Mobile Touch Devices
+        window.addEventListener('DOMContentLoaded', () => {
+            const stage = document.getElementById('lightboxStage');
+            if (stage) {
+                stage.addEventListener('touchstart', (e) => {
+                    touchStartX = e.changedTouches[0].screenX;
+                }, { passive: true });
+
+                stage.addEventListener('touchend', (e) => {
+                    touchEndX = e.changedTouches[0].screenX;
+                    const swipeDistance = touchEndX - touchStartX;
+                    if (Math.abs(swipeDistance) > 40) {
+                        if (swipeDistance < 0) {
+                            nextSlide(); // Vuốt sang trái -> Xem ảnh kế tiếp
+                        } else {
+                            prevSlide(); // Vuốt sang phải -> Xem ảnh trước
+                        }
+                    }
+                }, { passive: true });
+            }
+        });
     </script>
 </body>
 </html>
