@@ -7,6 +7,7 @@ import asyncio
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+import json
 import base64
 import random
 import secrets
@@ -23,7 +24,26 @@ sys.stdout.reconfigure(encoding='utf-8')
 # Authentication credentials & persistent session storage
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 VALID_PASSWORDS = {os.environ.get("ADMIN_PASS", "admin"), "admin", "admin123", "123456", "rivergate123"}
-ACTIVE_SESSIONS = set()
+
+SESSION_FILE = os.path.join(os.path.dirname(__file__), ".sessions.json")
+
+def _load_sessions() -> set:
+    try:
+        if os.path.exists(SESSION_FILE):
+            with open(SESSION_FILE, "r") as f:
+                return set(json.load(f))
+    except Exception:
+        pass
+    return set()
+
+def _save_sessions(sessions: set):
+    try:
+        with open(SESSION_FILE, "w") as f:
+            json.dump(list(sessions), f)
+    except Exception:
+        pass
+
+ACTIVE_SESSIONS: set = _load_sessions()
 
 def is_authenticated(request: Request) -> bool:
     session_id = request.cookies.get("session_id")
@@ -120,6 +140,7 @@ async def api_login(data: LoginRequest, response: Response):
     if data.username == ADMIN_USER and data.password in VALID_PASSWORDS:
         session_id = secrets.token_urlsafe(32)
         ACTIVE_SESSIONS.add(session_id)
+        _save_sessions(ACTIVE_SESSIONS)
         response.set_cookie(
             key="session_id",
             value=session_id,
@@ -135,6 +156,7 @@ async def api_logout(request: Request, response: Response):
     session_id = request.cookies.get("session_id")
     if session_id:
         ACTIVE_SESSIONS.discard(session_id)
+        _save_sessions(ACTIVE_SESSIONS)
     response.delete_cookie("session_id")
     return {"success": True}
 

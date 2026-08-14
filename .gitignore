@@ -1,8 +1,12 @@
 __pycache__/
 *.pyc
 screenshots/
+local_screenshots/
 tunnel_url.txt
 *.log
 post_response.html
 .git/
 .vscode/
+.sessions.json
+scratch/
+*.png
