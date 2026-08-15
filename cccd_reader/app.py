@@ -808,17 +808,47 @@ def auto_orient(img):
     return img
 
 
-def warp_document(img, doc_type='cccd_old'):
-    """Cắt thẻ chuẩn hoá và bảo toàn kích thước chuẩn (Tự phát hiện viền thẻ trên ảnh chụp điện thoại / VNeID / Scanner)"""
+def warp_document(img, doc_type='cccd_old', tokens=None):
+    """
+    Tự động phát hiện viền hộ chiếu / CCCD và cắt ảnh gọn gàng (Auto Card Cropping):
+    - Loại bỏ ngón tay, bàn ghế, sàn nhà, phông nền thừa
+    - Giữ nguyên tỷ lệ tự nhiên không bị méo hay dẹt
+    """
     if img is None or img.size == 0:
         return img
         
-    out_w, out_h = (900, 634) if doc_type == 'passport' else (900, 568)
     h, w = img.shape[:2]
+    
+    # 1. Cắt dựa trên vùng bao phủ của toàn bộ văn bản (OCR Tokens Bounding Box)
+    if tokens and len(tokens) >= 3:
+        valid_toks = [t for t in tokens if len(t.get('text', '').strip()) > 1]
+        if len(valid_toks) >= 3:
+            min_x = min(t['x0'] for t in valid_toks)
+            min_y = min(t['y0'] for t in valid_toks)
+            max_x = max(t['x1'] for t in valid_toks)
+            max_y = max(t['y1'] for t in valid_toks)
+            
+            box_w = max_x - min_x
+            box_h = max_y - min_y
+            
+            if box_w > (w * 0.25) and box_h > (h * 0.25):
+                # Padding thêm 7% chiều rộng và 6% chiều cao
+                pad_x = int(box_w * 0.08)
+                pad_y = int(box_h * 0.07)
+                x0 = max(0, min_x - pad_x)
+                y0 = max(0, min_y - pad_y)
+                x1 = min(w, max_x + pad_x)
+                y1 = min(h, max_y + pad_y)
+                
+                # Chỉ cắt nếu vùng bao nhỏ hơn 95% diện tích ảnh gốc
+                if (x1 - x0) * (y1 - y0) < (w * h * 0.95):
+                    img = img[y0:y1, x0:x1]
+                    h, w = img.shape[:2]
+                    return img
     
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # 1. Black border removal (Loại bỏ viền đen xung quanh ảnh do quét/chụp màn hình/VNeID)
+    # 2. Black border removal (Loại bỏ viền đen)
     _, thresh_dark = cv2.threshold(gray, 22, 255, cv2.THRESH_BINARY)
     cnts_dark, _ = cv2.findContours(thresh_dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if cnts_dark:
@@ -831,7 +861,7 @@ def warp_document(img, doc_type='cccd_old'):
                 h, w = img.shape[:2]
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 
-    # 2. Contour / Edge based Card Detection
+    # 3. Contour / Edge based Card Detection
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 20, 80)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -842,27 +872,29 @@ def warp_document(img, doc_type='cccd_old'):
         card_candidates = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area > (w * h * 0.15): # Document occupies at least 15%
+            if area > (w * h * 0.15):
                 bx, by, bw, bh = cv2.boundingRect(cnt)
                 b_aspect = float(bw) / float(bh) if bh > 0 else 0
-                if 1.15 <= b_aspect <= 1.95:
+                if 1.10 <= b_aspect <= 1.95:
                     card_candidates.append((area, bx, by, bw, bh))
         if card_candidates:
             card_candidates.sort(key=lambda x: x[0], reverse=True)
             _, bx, by, bw, bh = card_candidates[0]
             if (bw * bh) < (w * h * 0.92):
-                pad_x = int(bw * 0.015)
-                pad_y = int(bh * 0.015)
+                pad_x = int(bw * 0.02)
+                pad_y = int(bh * 0.02)
                 x0 = max(0, bx - pad_x)
                 y0 = max(0, by - pad_y)
                 x1 = min(w, bx + bw + pad_x)
                 y1 = min(h, by + bh + pad_y)
-    h_curr, w_curr = img.shape[:2]
-    # Preserve exact natural aspect ratio up to max dimension 900px (Never distort or squish!)
+                img = img[y0:y1, x0:x1]
+                h, w = img.shape[:2]
+                
+    # Giới hạn kích thước ảnh xem trước tối đa 900px
     target_max = 900
-    if max(h_curr, w_curr) > target_max:
-        s_aspect = float(target_max) / max(h_curr, w_curr)
-        return cv2.resize(img, (int(w_curr * s_aspect), int(h_curr * s_aspect)), interpolation=cv2.INTER_AREA)
+    if max(h, w) > target_max:
+        s_aspect = float(target_max) / max(h, w)
+        return cv2.resize(img, (int(w * s_aspect), int(h * s_aspect)), interpolation=cv2.INTER_AREA)
     return img
 
 
@@ -1584,7 +1616,9 @@ class IntelligentDocumentEngine:
             if f_flip.get('full_name') or f_flip.get('passport_number'):
                 return d_type_flip, f_flip, c_flip, m_flip, img_flip
 
-        return doc_type, fields, crops, mrz_parsed, img
+        # Tự động cắt bỏ viền thừa, ngón tay, bàn ghế xung quanh để lưu ảnh sạch sẽ
+        cropped_doc_img = warp_document(img, doc_type, tokens)
+        return doc_type, fields, crops, mrz_parsed, cropped_doc_img
 
 
 def smart_orient_document(img, reader):
