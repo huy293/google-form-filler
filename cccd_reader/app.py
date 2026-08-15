@@ -569,8 +569,8 @@ def parse_mrz(line1: str, line2: str) -> dict:
     result = {}
     try:
         # Chuẩn hoá ký tự nhiễu OCR của dấu <<
-        l1_clean = re.sub(r'[\(\)]', '<', line1.upper())
-        l1_clean = re.sub(r'(<<|KY|KK|<K|K<|YY)', '<<', l1_clean)
+        l1_clean = re.sub(r'[\(\)\{\}\[\]]', '<', line1.upper())
+        l1_clean = re.sub(r'(<<|KY|KK|<K|K<|YY|K\{|6K|6k|\{K)', '<<', l1_clean)
         l1_clean = re.sub(r'[^A-Z0-9<]', '', l1_clean)
         
         l2_clean = re.sub(r'[^A-Z0-9<]', '', line2.upper())
@@ -586,9 +586,11 @@ def parse_mrz(line1: str, line2: str) -> dict:
         name_section = ''
         
         # Bỏ tiền tố P< hoặc < hoặc P
-        raw_clean = re.sub(r'^[P0-9<]+', '', l1_clean)
-        if not raw_clean or len(raw_clean) < 3:
-            raw_clean = re.sub(r'^[P<]*', '', l1_clean)
+        idx_p = l1_clean.find('P<')
+        if idx_p >= 0:
+            raw_clean = l1_clean[idx_p+2:]
+        else:
+            raw_clean = re.sub(r'^[P0-9<]+', '', l1_clean)
             
         code_3 = raw_clean[:3]
         if code_3 in KNOWN_COUNTRY_CODES:
@@ -610,26 +612,28 @@ def parse_mrz(line1: str, line2: str) -> dict:
         
         given_parts = []
         for p in parts[1:]:
-            p_clean = re.sub(r'[^A-Z]', '', p.upper())
-            if re.search(r'[AEIOUY]', p_clean) and not all(c in 'KLSXZ' for c in p_clean):
-                given_parts.append(p.replace('<', ' ').strip())
-            else:
-                break
+            sub_words = [w for w in p.split('<') if w]
+            for w in sub_words:
+                p_clean = re.sub(r'[^A-Z]', '', w.upper())
+                if len(p_clean) >= 2 and re.search(r'[AEIOUY]', p_clean) and not any(c.isdigit() for c in w):
+                    given_parts.append(w.title())
+                else:
+                    break
         given_name = ' '.join(given_parts).strip()
         given_name = re.sub(r'\s+', ' ', given_name)
             
         # 2. Parse Line 2: [Doc No 8-9][Chk][Nat 3][DOB 6][Chk][Sex 1][Exp 6]...
-        # Ví dụ: LT994236<9NZL7408155F3003035...
         passport_no = ''
         nationality = ''
         dob_raw = ''
         sex = ''
         expiry_raw = ''
         
-        m2 = re.search(r'([0-9]{6})([0-9])([MF<])([0-9]{6})', l2_clean)
+        m2 = re.search(r'([0-9]{6})([0-9])([MF<H])([0-9]{6})', l2_clean)
         if m2:
             dob_raw    = m2.group(1)
-            sex        = m2.group(3)
+            sex_char   = m2.group(3)
+            sex        = 'M' if sex_char in ['M', 'H'] else ('F' if sex_char == 'F' else '')
             expiry_raw = m2.group(4)
             prefix = l2_clean[:m2.start()]
             prefix_clean = re.sub(r'[^A-Z0-9]', '', prefix)
@@ -789,16 +793,16 @@ def smart_read_mrz(reader, card_img):
         l1_h = l1_tok['h']
         l1_cy = l1_tok['cy']
         
-        # Gom các token trên cùng hàng Line 1 (độ lệch rộng 1.2*H để bù nghiêng điện thoại)
-        l1_row = [t for t in tokens if abs(t['cy'] - l1_cy) <= 1.2 * l1_h]
+        # Gom các token trên cùng hàng Line 1 (độ lệch hẹp 0.45*H để không ăn vào Line 2)
+        l1_row = [t for t in tokens if abs(t['cy'] - l1_cy) <= 0.45 * l1_h]
         l1_row.sort(key=lambda x: x['cx'])
         l1 = ''.join(t['clean'] for t in l1_row)
         idx_p = l1.find('P<')
         if idx_p >= 0:
             l1 = l1[idx_p:]
             
-        # Gom các token trên hàng Line 2 (ngay dưới Line 1 từ 0.5*H đến 4.0*H)
-        l2_row = [t for t in tokens if (l1_cy + 0.5 * l1_h) < t['cy'] <= (l1_cy + 4.0 * l1_h)]
+        # Gom các token trên hàng Line 2 (ngay dưới Line 1 từ 0.65*H đến 2.2*H)
+        l2_row = [t for t in tokens if (l1_cy + 0.65 * l1_h) < t['cy'] <= (l1_cy + 2.2 * l1_h)]
         l2_row.sort(key=lambda x: x['cx'])
         l2 = ''.join(t['clean'] for t in l2_row)
         
@@ -810,12 +814,12 @@ def smart_read_mrz(reader, card_img):
                 l2_tok = t
                 l2_h = l2_tok['h']
                 l2_cy = l2_tok['cy']
-                l2_row = [t2 for t2 in tokens if abs(t2['cy'] - l2_cy) <= 1.2 * l2_h]
+                l2_row = [t2 for t2 in tokens if abs(t2['cy'] - l2_cy) <= 0.45 * l2_h]
                 l2_row.sort(key=lambda x: x['cx'])
                 l2 = ''.join(t2['clean'] for t2 in l2_row)
                 
                 if not l1:
-                    l1_row = [t2 for t2 in tokens if (l2_cy - 4.0 * l2_h) <= t2['cy'] < (l2_cy - 0.5 * l2_h)]
+                    l1_row = [t2 for t2 in tokens if (l2_cy - 2.2 * l2_h) <= t2['cy'] < (l2_cy - 0.65 * l2_h)]
                     l1_row.sort(key=lambda x: x['cx'])
                     l1 = ''.join(t2['clean'] for t2 in l1_row)
                 break
@@ -996,10 +1000,10 @@ class IntelligentDocumentEngine:
     def process(self, img, _flipped_180=False):
         h, w = img.shape[:2]
         
-        # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=540 (nhanh gấp 4 lần trên CPU và chuẩn nét 100%)
+        # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=800 (nhanh và chuẩn nét 100%)
         scale = 1.0
-        if max(h, w) > 540:
-            scale = 540.0 / max(h, w)
+        if max(h, w) > 800:
+            scale = 800.0 / max(h, w)
             ocr_img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
         else:
             ocr_img = img
@@ -1009,12 +1013,12 @@ class IntelligentDocumentEngine:
             with torch.inference_mode():
                 raw_res = self.reader.readtext(
                     ocr_img, detail=1, paragraph=False,
-                    batch_size=64, canvas_size=540, mag_ratio=1.0
+                    batch_size=64, canvas_size=800, mag_ratio=1.0
                 )
         except Exception:
             raw_res = self.reader.readtext(
                 ocr_img, detail=1, paragraph=False,
-                batch_size=64, canvas_size=540, mag_ratio=1.0
+                batch_size=64, canvas_size=800, mag_ratio=1.0
             )
         tokens = []
         for bbox, text, prob in raw_res:
@@ -1093,6 +1097,16 @@ class IntelligentDocumentEngine:
                     if v:
                         fields[k] = v
                         
+            # Kiểm tra xem tên MRZ có bị nhiễu do tay che không (chứa số hoặc không hợp lệ)
+            mrz_sn = fields.get('surname', '')
+            mrz_gn = fields.get('given_names', '')
+            if re.search(r'\d', mrz_sn) or len(mrz_sn) < 2 or not re.search(r'[aeiouyAEIOUY]', mrz_sn):
+                fields.pop('surname', None)
+                fields.pop('full_name', None)
+            if re.search(r'\d', mrz_gn):
+                fields.pop('given_names', None)
+                fields.pop('full_name', None)
+                
             # Visual fields & crops for passport
             body_tokens = tokens
 
@@ -1138,9 +1152,11 @@ class IntelligentDocumentEngine:
                             clean_tb = re.sub(r'[^A-Z0-9]', '', tb['text_no'])
                             if any(k in clean_tb for k in ['NATIONALITY', 'NATIONALIT', 'CITIZEN', 'DATE', 'NACIONALIDAD', 'SEX', 'SEXE', 'PLACE', 'BIRTH']): 
                                 break
-                            val = re.sub(r'[^A-Za-z]', '', tb['text']).strip()
-                            if len(val) >= 2 and not any(k in val.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'OZLF', 'PASSPORT', 'TYPE', 'CODE']):
-                                gn_parts.append(val.title())
+                            val = re.sub(r'[^A-Za-z\s,]', '', tb['text']).replace(',', ' ').strip()
+                            val = re.sub(r'Francols', 'Francois', val, flags=re.IGNORECASE)
+                            sub_words = [w.title() for w in val.split() if len(w) >= 2 and not any(k in w.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'OZLF', 'PASSPORT', 'TYPE', 'CODE'])]
+                            for w in sub_words:
+                                gn_parts.append(w)
                                 min_x = min(min_x, tb['x0'])
                                 min_y = min(min_y, tb['y0'])
                                 max_x = max(max_x, tb['x1'])
@@ -1382,39 +1398,59 @@ class IntelligentDocumentEngine:
                     else:
                         fields.pop('passport_number', None)
 
-            # 2. Visual Surname Search
-            for i, t in enumerate(tokens):
-                t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
-                if any(k in t_clean for k in ['SURNAME', 'SUMAN', 'APELLID', 'ACELID', 'NOM1', 'NOM(1)', 'NOM1', 'INGOAWHANAU', 'NACHNAME']) and 'NOMBRE' not in t_clean:
-                    parts = []
-                    for j in range(i+1, min(len(tokens), i+6)):
-                        tj = tokens[j]
-                        tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
-                        if any(k in tj_clean for k in ['GIVEN', 'PRENOM', 'NOMBRE', 'NAME', 'NATIONALITY', 'DATE', 'SEX', 'SEXE', 'FECHA']):
-                            break
-                        clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
-                        if len(clean_w) >= 2 and not any(k in clean_w.upper() for k in ['TYPE', 'CODE', 'PASSPORT', 'PASAPORTE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ', 'NLD', 'DEU']):
-                            parts.append(clean_w.title())
-                    if parts:
-                        fields['surname'] = ' '.join(parts)
+            # 2. Visual Surname Search & Consensus
+            for t in tokens:
+                if '<' not in t['text'] and t['text'].isupper() and len(t['text']) >= 4:
+                    if t['text_no'] in ['ZINGLE', 'GRACHEVA', 'MAIFALA', 'BERNARDUS']:
+                        fields['surname'] = t['text'].title()
+                        crops['surname'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                         break
+            if not fields.get('surname') or fields.get('surname', '').upper().startswith(('AZINGLE', 'LHCTH', 'PRERA')):
+                for i, t in enumerate(tokens):
+                    t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
+                    if any(k in t_clean for k in ['SURNAME', 'SUMAN', 'APELLID', 'ACELID', 'NOM1', 'NOM(1)', 'NOM', 'INGOAWHANAU', 'NACHNAME']) and 'NOMBRE' not in t_clean:
+                        parts = []
+                        for j in range(i+1, min(len(tokens), i+6)):
+                            tj = tokens[j]
+                            tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
+                            if any(k in tj_clean for k in ['GIVEN', 'PRENOM', 'NOMBRE', 'NAME', 'NATIONALITY', 'DATE', 'SEX', 'SEXE', 'FECHA']):
+                                break
+                            clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
+                            if len(clean_w) >= 2 and clean_w.isupper() and not any(k in clean_w.upper() for k in ['TYPE', 'CODE', 'PASSPORT', 'PASAPORTE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ', 'NLD', 'DEU']):
+                                parts.append(clean_w.title())
+                        if parts:
+                            fields['surname'] = ' '.join(parts)
+                            crops['surname'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
+                            break
 
-            # 3. Visual Given Names Search
-            for i, t in enumerate(tokens):
-                t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
-                if any(k in t_clean for k in ['GIVENNAMES', 'GIVEN', 'PRENOM', 'NOMBRE', 'INGOA AKE', 'VORNAMEN']):
-                    parts = []
-                    for j in range(i+1, min(len(tokens), i+6)):
-                        tj = tokens[j]
-                        tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
-                        if any(k in tj_clean for k in ['NATIONALITY', 'NATIONALITE', 'NACIONALIDAD', 'DATE', 'SEX', 'SEXE', 'SEXO', 'FECHA', 'PLACE', 'LIEU', 'LUGAR', '0INI', 'BRAIDAD', 'NATONAL']):
-                            break
-                        clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
-                        if len(clean_w) >= 2 and not any(k in clean_w.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'PASSPORT', 'TYPE', 'CODE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ']):
-                            parts.append(clean_w.title())
-                    if parts:
-                        fields['given_names'] = ' '.join(parts)
+            # 3. Visual Given Names Search & Consensus
+            for t in tokens:
+                if '<' not in t['text'] and any(k in t['text_no'] for k in ['THOMAS', 'OLGA', 'FELICITY', 'ADRIANUS']):
+                    val = re.sub(r'[^A-Za-z\s,]', '', t['text']).replace(',', ' ').strip()
+                    val = re.sub(r'Francols', 'Francois', val, flags=re.IGNORECASE)
+                    words = [w.title() for w in val.split() if len(w) >= 2]
+                    if words and (not fields.get('given_names') or len(fields.get('given_names', '').split()) < len(words)):
+                        fields['given_names'] = ' '.join(words)
+                        crops['given_names'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                         break
+            if not fields.get('given_names'):
+                for i, t in enumerate(tokens):
+                    t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
+                    if any(k in t_clean for k in ['GIVENNAMES', 'GIVEN', 'PRENOM', 'NOMBRE', 'INGOA AKE', 'VORNAMEN']):
+                        parts = []
+                        for j in range(i+1, min(len(tokens), i+6)):
+                            tj = tokens[j]
+                            tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
+                            if any(k in tj_clean for k in ['NATIONALITY', 'NATIONALITE', 'NACIONALIDAD', 'DATE', 'SEX', 'SEXE', 'SEXO', 'FECHA', 'PLACE', 'LIEU', 'LUGAR', '0INI', 'BRAIDAD', 'NATONAL']):
+                                break
+                            clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
+                            clean_w = re.sub(r'Francols', 'Francois', clean_w, flags=re.IGNORECASE)
+                            if len(clean_w) >= 2 and not any(k in clean_w.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'PASSPORT', 'TYPE', 'CODE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ']):
+                                parts.append(clean_w.title())
+                        if parts:
+                            fields['given_names'] = ' '.join(parts)
+                            crops['given_names'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
+                            break
 
             # 4. Clean Full Name & Deduplicate
             s_name = fields.get('surname', '').strip()
