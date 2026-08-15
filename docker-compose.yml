@@ -6,9 +6,9 @@ services:
     container_name: google-form-filler
     restart: always
     ports:
-      - "8080:8080"
+      - "1111:1111"
     environment:
-      - PORT=8080
+      - PORT=1111
       - ADMIN_USER=admin
       - ADMIN_PASS=admin
     volumes:
