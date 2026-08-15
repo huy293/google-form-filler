@@ -1426,11 +1426,12 @@
                         if (box && img) { img.src = 'data:image/jpeg;base64,' + pobCrop; box.style.display = 'flex'; }
                     }
                 } else {
-                    statusDiv.innerHTML = `<span style="color: var(--error);">❌ ${data.detail || 'Lỗi quét ảnh, vui lòng kiểm tra lại!'}</span>`;
+                    statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ ${data.detail || 'Lỗi quét ảnh, vui lòng thử lại!'}</span>`;
                 }
 
             } catch (err) {
-                statusDiv.innerHTML = `<span style="color: var(--error);">❌ Lỗi kết nối OCR!</span>`;
+                console.error("OCR Fetch Error:", err);
+                statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ Lỗi kết nối OCR: ${err.message || 'Mất kết nối máy chủ'}</span>`;
             }
         }
 

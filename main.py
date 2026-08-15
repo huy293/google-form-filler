@@ -310,15 +310,20 @@ def _sync_extract(contents: bytes):
 @app.post("/api/extract")
 async def extract_document(request: Request, image: UploadFile = File(...)):
     if not is_authenticated(request):
-        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập hệ thống!")
+        return {"success": False, "detail": "Vui lòng đăng nhập hệ thống!"}
     if not is_pro_authenticated(request):
-        raise HTTPException(status_code=403, detail="Chức năng PRO yêu cầu mật khẩu cấp 2!")
+        return {"success": False, "detail": "Chức năng PRO yêu cầu mật khẩu cấp 2!"}
     
-    contents = await image.read()
-    result = await asyncio.to_thread(_sync_extract, contents)
-    if result is None:
-        raise HTTPException(status_code=400, detail="Không đọc được file ảnh!")
-    return result
+    try:
+        contents = await image.read()
+        result = await asyncio.to_thread(_sync_extract, contents)
+        if result is None:
+            return {"success": False, "detail": "Không đọc được file ảnh hoặc định dạng không hỗ trợ!"}
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "detail": f"Lỗi xử lý OCR: {str(e)}"}
 
 
 
