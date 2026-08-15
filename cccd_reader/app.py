@@ -3,7 +3,11 @@ Flask backend for CCCD/Passport OCR Demo
 POST /api/extract  <- upload image, return extracted fields + crops (base64)
 GET  /             <- serve index.html
 """
-import os, base64, io, json, pickle, re
+import os
+os.environ["USE_NNPACK"] = "0"
+os.environ["OMP_NUM_THREADS"] = "2"
+
+import base64, io, json, pickle, re
 from pathlib import Path
 from flask import Flask, request, jsonify, render_template_string, send_from_directory
 import cv2

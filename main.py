@@ -1,7 +1,12 @@
 import os
+os.environ["USE_NNPACK"] = "0"
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+
 import io
 import sys
 import asyncio
+import threading
 
 # Fix Playwright subprocess on Windows (ProactorEventLoop required)
 if sys.platform == "win32":
@@ -13,7 +18,7 @@ import random
 import secrets
 import re
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Response, Request
+from fastapi import FastAPI, HTTPException, Response, Request, UploadFile, File
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
