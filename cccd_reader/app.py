@@ -882,7 +882,7 @@ class IntelligentDocumentEngine:
     def __init__(self, reader):
         self.reader = reader
 
-    def process(self, img):
+    def process(self, img, _flipped_180=False):
         h, w = img.shape[:2]
         
         # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=680 (cực nhanh trên CPU và chuẩn xác 100%)
@@ -924,13 +924,15 @@ class IntelligentDocumentEngine:
                 'prob': prob
             })
 
-        # 1.5 Auto-Detect Upside Down (ICAO Doc 9303: MRZ is ALWAYS at the bottom!)
-        # If MRZ signature (P<, <<, IDVNM) is at the TOP (cy < 0.45 * h),
-        # the entire document is upside down (180 deg rotated)!
-        top_mrz_count = sum(1 for tok in tokens if tok['cy'] < 0.45 * h and ('P<' in tok['text_no'] or '<<<' in tok['text_no'] or tok['text_no'].startswith('P<') or tok['text_no'].startswith('P8') or tok['text_no'].startswith('PY')))
-        if top_mrz_count > 0:
-            print("[INFO] Document is upside down (MRZ detected at top)! Rotating 180 degrees...")
-            return self.process(cv2.rotate(img, cv2.ROTATE_180))
+        # 1.5 Auto-Detect Upside Down (ICAO Doc 9303 Invariant: MRZ is ALWAYS at the bottom!)
+        if not _flipped_180:
+            top_chevrons = sum(tok['text_no'].count('<') for tok in tokens if tok['cy'] < 0.45 * h)
+            top_mrz = any(('<<' in tok['text_no'] or 'P<' in tok['text_no'] or bool(re.search(r'[0-9]{6}[0-9][MF]', tok['text_no']))) for tok in tokens if tok['cy'] < 0.45 * h)
+            bottom_header = any(any(k in tok['text_no'] for k in ['REPUBLIQUE', 'PASSEPORT', 'PASSPORT', 'NEW ZEALAND', 'CAN CUOC', 'CONG HOA', 'BUNDESREPUBLIK', 'KONINKRIJK']) for tok in tokens if tok['cy'] > 0.65 * h)
+            
+            if top_chevrons >= 2 or top_mrz or bottom_header:
+                print("[INFO] Document is upside down (MRZ at top / Header at bottom)! Rotating 180 degrees...")
+                return self.process(cv2.rotate(img, cv2.ROTATE_180), _flipped_180=True)
 
         all_text_no = ' '.join(t['text_no'] for t in tokens)
         
