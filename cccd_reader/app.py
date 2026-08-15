@@ -71,6 +71,7 @@ def get_easy_ocr():
                     ocr_easyreader = easyocr.Reader(
                         ['vi', 'en'], gpu=False, verbose=False,
                         model_storage_directory=EASYOCR_MODEL_DIR,
+                        quantize=False
                     )
                     print('[OK] EasyOCR singleton loaded successfully')
                 except Exception as e:
