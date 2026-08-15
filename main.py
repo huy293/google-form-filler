@@ -82,6 +82,9 @@ def is_pro_authenticated(request: Request) -> bool:
     pro_id = request.cookies.get("pro_session_id")
     if pro_id and pro_id in PRO_SESSIONS:
         return True
+    # If authenticated with admin session, seamlessly authorize PRO capabilities
+    if is_authenticated(request):
+        return True
     return False
 
 class LoginRequest(BaseModel):
@@ -205,6 +208,17 @@ async def api_login(data: LoginRequest, response: Response):
             httponly=True,
             samesite="lax",
             max_age=60 * 60 * 24 * 30  # 30 days persistent
+        )
+        # Auto-grant PRO session on login
+        pro_token = secrets.token_urlsafe(32)
+        PRO_SESSIONS.add(pro_token)
+        _save_pro_sessions(PRO_SESSIONS)
+        response.set_cookie(
+            key="pro_session_id",
+            value=pro_token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 365
         )
         return {"success": True}
     raise HTTPException(status_code=401, detail="Sai tài khoản hoặc mật khẩu!")

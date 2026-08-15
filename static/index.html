@@ -1030,17 +1030,18 @@
         // Check if PRO mode is already unlocked
         async function checkProStatus() {
             try {
-                const res = await fetch('/api/pro-status');
+                const res = await fetch('/api/pro-status', { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.unlocked || localStorage.getItem('pro_unlocked') === '1') {
+                    if (data.unlocked) {
                         setProUnlockedState(true);
+                    } else {
+                        setProUnlockedState(false);
+                        localStorage.removeItem('pro_unlocked');
                     }
                 }
             } catch (e) {
-                if (localStorage.getItem('pro_unlocked') === '1') {
-                    setProUnlockedState(true);
-                }
+                setProUnlockedState(false);
             }
         }
 
@@ -1051,6 +1052,10 @@
                 badge.textContent = "Đã Mở";
                 badge.style.background = "var(--accent-gold)";
                 badge.style.color = "#000";
+            } else {
+                badge.textContent = "Pass C2";
+                badge.style.background = "rgba(255, 255, 255, 0.2)";
+                badge.style.color = "#fff";
             }
         }
 
@@ -1093,6 +1098,7 @@
             try {
                 const res = await fetch('/api/verify-pro-pass', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password: pass })
                 });
@@ -1329,6 +1335,7 @@
             try {
                 const res = await fetch('/api/extract', {
                     method: 'POST',
+                    credentials: 'include',
                     body: formData
                 });
 
