@@ -404,13 +404,60 @@ def calc_icao_check_digit(s):
     total = sum(icao_char_val(c) * weights[i % 3] for i, c in enumerate(s))
     return str(total % 10)
 
-def repair_and_validate_passport_no(raw_cand, check_digit, country_code=''):
-    raw_cand = raw_cand.replace('<', '').strip()
+def repair_and_validate_passport_no(raw_cand, check_digit='', country_code=''):
+    raw_cand = raw_cand.replace('<', '').strip().upper()
     if not raw_cand:
         return ''
     if check_digit and calc_icao_check_digit(raw_cand) == check_digit:
         return raw_cand
         
+    # 1. New Zealand / UK 2 letters + 6 digits (e.g. LT994236)
+    if country_code in ['NZL', 'GBR', 'NZ', 'UK'] or len(raw_cand) == 8:
+        if len(raw_cand) == 8 and raw_cand[:2].isalpha():
+            l1, l2 = raw_cand[0], raw_cand[1]
+            d_map = {'E': '9', 'B': '8', 'S': '5', 'O': '0', 'D': '0', 'Z': '2', 'I': '1', 'L': '1', 'A': '4', 'G': '6'}
+            digits = list(raw_cand[2:])
+            for i in range(len(digits)):
+                if not digits[i].isdigit() and digits[i] in d_map:
+                    digits[i] = d_map[digits[i]]
+            cand = l1 + l2 + ''.join(digits)
+            if check_digit and calc_icao_check_digit(cand) == check_digit:
+                return cand
+            if sum(c.isdigit() for c in cand[2:]) >= 5:
+                return cand
+
+    # 2. France 2 digits + 2 letters + 5 digits (e.g. 24CA80782)
+    if country_code in ['FRA', 'FR'] or len(raw_cand) == 9:
+        if len(raw_cand) == 9:
+            chars = list(raw_cand)
+            d_map = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
+            if not chars[0].isdigit() and chars[0] in d_map: chars[0] = d_map[chars[0]]
+            if not chars[1].isdigit() and chars[1] in d_map: chars[1] = d_map[chars[1]]
+            for k in range(4, 9):
+                if not chars[k].isdigit() and chars[k] in d_map: chars[k] = d_map[chars[k]]
+            cand = ''.join(chars)
+            if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', cand):
+                return cand
+
+    # 3. Russia 9 digits (e.g. 517675029)
+    if country_code in ['RUS', 'RU']:
+        digs = re.sub(r'\D', '', raw_cand)
+        if len(digs) == 9:
+            return digs
+
+    # 4. Spain 3 letters + 6 digits (e.g. PAZ218387)
+    if country_code in ['ESP', 'ES'] or (len(raw_cand) == 9 and raw_cand[:3].isalpha()):
+        p_chars = list(raw_cand)
+        d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'A': '4'}
+        for k in range(3, len(p_chars)):
+            if not p_chars[k].isdigit() and p_chars[k] in d_map:
+                p_chars[k] = d_map[p_chars[k]]
+        cand = ''.join(p_chars)
+        if check_digit and calc_icao_check_digit(cand) == check_digit:
+            return cand
+        return cand
+
+    # 5. General check digit search
     FORBIDDEN_GERMAN = set('AEIOUBDQS') if country_code in ['D', 'DEU'] else set()
     CONFUSIONS = {
         'U': ['1', '0', 'V'],
@@ -418,12 +465,15 @@ def repair_and_validate_passport_no(raw_cand, check_digit, country_code=''):
         'G': ['6', '0', 'C'],
         'D': ['0', 'O'],
         'S': ['5'],
-        'B': ['8'],
+        'B': ['8', 'E', '3'],
         'O': ['0'],
         'Z': ['2'],
-        '1': ['I', 'L', 'U'],
+        '1': ['I', 'L', 'U', '7'],
         'P': ['A', 'R'],
         '6': ['G', 'B', '0'],
+        'E': ['9', '8', '3', 'B'],
+        '4': ['A', '9', 'C'],
+        '9': ['E', '8', '0']
     }
     
     candidates = [raw_cand]
@@ -1255,16 +1305,17 @@ class IntelligentDocumentEngine:
                 r'^[0-9]{2}[A-Z]{2}[0-9]{5}$',      # France 24CA80782, 14PO30282
                 r'^[A-Z]{3}[0-9]{6}$',              # Spain PAZ218387
                 r'^[A-Z]{2}[0-9]{6}$',              # NZ/UK LT994236, RA659320
-                r'^[0-9]{9}$',                      # UK/US 312217939
+                r'^[0-9]{9}$',                      # Russia/UK/US 517675029, 312217939
                 r'^[A-Z][0-9]{7,8}$',               # Standard C1234567, P1234567
-                r'^[A-Z0-9]{8,10}$'                 # General alphanumeric
+                r'^[A-Z0-9]{2}[0-9]{6,7}$'          # Valid international passport format
             ]
             BLACKLIST_WORDS = [
                 'PASS', 'PASE', 'PASP', 'REIS', 'BUND', 'DEUT', 'TYPE', 'CODE', 'TITUL', 'SIGN',
                 'DATE', 'NATION', 'SURNAME', 'GIVEN', 'NAME', 'NOM', 'APELL', 'FECH', 'EXPED',
                 'CADUC', 'EMIS', 'HOLD', 'DOCU', 'REPU', 'FEDE', 'COMM', 'UNIO', 'GREAT', 'BRIT',
                 'KINGD', 'IRELA', 'CITIZ', 'ESTAD', 'EUROP', 'AUTOR', 'AUTHOR', 'MOMO', 'CARD',
-                'STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'OISTERWIJK', 'AMSTERDAM'
+                'STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'OISTERWIJK', 'AMSTERDAM', 'AUCKLAND',
+                'ELECTRONIQUE', 'PARTICULIER', 'SOIN'
             ]
 
             # 1. Visual Passport Number Search (Always Prioritize Clear Header Zone on Top-Right)
@@ -1276,6 +1327,7 @@ class IntelligentDocumentEngine:
                     txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
                     if any(k in txt_clean for k in BLACKLIST_WORDS): continue
                     if len(txt_clean) == 8 and txt_clean.isdigit(): continue # date DDMMYYYY
+                    if sum(c.isdigit() for c in txt_clean) < 4: continue # Bắt buộc phải có ít nhất 4 chữ số!
                     
                     # 1.1 French Format: 2 digits + 2 letters + 5 digits (e.g. 24CA80782)
                     if len(txt_clean) == 9:
@@ -1291,7 +1343,7 @@ class IntelligentDocumentEngine:
                             header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
                             break
                             
-                    # 1.2 General Regex Format (e.g. NNPDR2915, PAZ218387, C1234567, 312217939)
+                    # 1.2 General Regex Format (e.g. LT994236, NNPDR2915, PAZ218387, C1234567, 312217939)
                     for pattern in PASSPORT_REGEX:
                         if re.match(pattern, txt_clean):
                             header_pass_no = txt_clean
@@ -1314,6 +1366,8 @@ class IntelligentDocumentEngine:
                         if any(k in txt_clean for k in BLACKLIST_WORDS):
                             continue
                         if len(txt_clean) == 8 and txt_clean.isdigit():
+                            continue
+                        if sum(c.isdigit() for c in txt_clean) < 4:
                             continue
                         for pattern in PASSPORT_REGEX:
                             if re.match(pattern, txt_clean):
