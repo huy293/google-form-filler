@@ -1,5 +1,7 @@
 import os
 os.environ["USE_NNPACK"] = "0"
+os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
+os.environ["TORCH_SHOW_CPP_STACKTRACES"] = "0"
 os.environ["OMP_NUM_THREADS"] = "2"
 os.environ["MKL_NUM_THREADS"] = "2"
 
