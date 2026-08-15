@@ -1544,6 +1544,8 @@ def smart_orient_document(img, reader):
         except:
             raw = []
             
+        score = 0.0
+        txt_list = []
         # Ưu tiên chiều ngang tự nhiên nếu ảnh gốc đã là Landscape
         if a == 0 and w >= h:
             score += 40.0
