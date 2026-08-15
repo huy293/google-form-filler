@@ -55,6 +55,12 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class SubmitRequest(BaseModel):
+    unitCode: str
+    guestId: str
+    gender: str
+    sharedNation: str = ""  # Optional: shared nationality for whole group
+
 # Lists of names and addresses for realistic randomization
 REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
 REP_FEMALE_NAMES = ["Nguyễn Thị Mai", "Trần Thu Trang", "Lê Linh Chi", "Phạm Hải Yến", "Nguyễn Khánh An", "Trần Mỹ Linh", "Đỗ Vân Anh", "Vũ Phương Thảo", "Lê Mai Hương", "Phạm Quỳnh Chi"]
@@ -174,10 +180,7 @@ async def get_status():
     global RUNNING_LOGS
     return {"logs": RUNNING_LOGS}
 
-class SubmitRequest(BaseModel):
-    unitCode: str
-    guestId: str
-    gender: str
+
 
 async def js_fill(locator, value):
     await locator.first.evaluate("""
@@ -211,7 +214,8 @@ async def fill_form_playwright(data: SubmitRequest):
     
     if is_foreign:
         guest_name = random.choice(GUEST_MALE_NAMES[:13]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[:13])
-        nation = random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
+        # Use shared nation from group if provided, else random
+        nation = data.sharedNation if data.sharedNation else random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
     else:
         guest_name = random.choice(GUEST_MALE_NAMES[13:]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[13:])
         nation = "Việt Nam"

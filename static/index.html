@@ -1007,6 +1007,10 @@
                 }
             }, 600);
 
+            // Generate shared nationality for the whole group (same room = same country)
+            const FOREIGN_NATIONS = ["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp", "Úc", "Canada", "Nhật Bản"];
+            const sharedNation = FOREIGN_NATIONS[Math.floor(Math.random() * FOREIGN_NATIONS.length)];
+
             // Process sequentially to protect server RAM
             for (let i = 0; i < guestsData.length; i++) {
                 const badge = document.getElementById(`statusBadge-${i}`);
@@ -1025,7 +1029,8 @@
                         body: JSON.stringify({
                             unitCode: unitCode,
                             guestId: guest.guestId,
-                            gender: guest.gender
+                            gender: guest.gender,
+                            sharedNation: sharedNation
                         }),
                     });
 
