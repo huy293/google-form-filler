@@ -526,29 +526,32 @@ def parse_mrz(line1: str, line2: str) -> dict:
         l2_clean = re.sub(r'[^A-Z0-9<]', '', line2.upper())
         
         # 1. Parse Line 1 according to ICAO Doc 9303 Part 4 (44-char Passport MRZ)
-        KNOWN_COUNTRY_CODES = ['DEU', 'GBR', 'USA', 'IRL', 'CYP', 'FRA', 'VNM', 'NZL', 'NLD', 'ESP', 'ITA', 'CAN', 'AUS', 'JPN', 'KOR', 'CHN', 'SGP', 'D']
+        KNOWN_COUNTRY_CODES = [
+            'DEU', 'GBR', 'USA', 'IRL', 'CYP', 'FRA', 'VNM', 'NZL', 'NLD', 'ESP', 'ITA',
+            'CAN', 'AUS', 'JPN', 'KOR', 'CHN', 'SGP', 'RUS', 'AUT', 'BEL', 'CHE', 'CZE',
+            'DNK', 'FIN', 'HUN', 'NOR', 'POL', 'PRT', 'SWE', 'BRA', 'MEX', 'ZAF', 'TWN',
+            'HKG', 'KHM', 'LAO', 'MMR', 'D'
+        ]
         country = ''
         name_section = ''
         
-        # Bỏ tiền tố P< hoặc P
-        raw_after_p = re.sub(r'^P[A-Z0-9<]*?<+', '', l1_clean)
-        if not raw_after_p or len(raw_after_p) < 3:
-            raw_after_p = re.sub(r'^P<*', '', l1_clean)
+        # Bỏ tiền tố P< hoặc < hoặc P
+        raw_clean = re.sub(r'^[P0-9<]+', '', l1_clean)
+        if not raw_clean or len(raw_clean) < 3:
+            raw_clean = re.sub(r'^[P<]*', '', l1_clean)
             
-        # 3 ký tự đầu tiên sau P< chính là Mã Quốc Gia (ví dụ: FRA, NLD, DEU, GBR, USA, D<<)
-        code_3 = raw_after_p[:3].replace('<', '')
+        code_3 = raw_clean[:3]
         if code_3 in KNOWN_COUNTRY_CODES:
             country = code_3
-            name_section = raw_after_p[3:].lstrip('<')
-        elif raw_after_p[:2] in ['D<', 'D']:
+            name_section = raw_clean[3:].lstrip('<')
+        elif raw_clean[:2] in ['D<', 'D'] and raw_clean[1:3] != '<<':
             country = 'DEU'
-            name_section = raw_after_p[2:].lstrip('<')
-        elif len(raw_after_p) >= 3 and raw_after_p[:3].isalpha() and raw_after_p[3:5] != '<<':
-            # 3 chữ cái đầu là quốc gia (ví dụ FRA trong P<FRAZINGLE)
-            country = raw_after_p[:3]
-            name_section = raw_after_p[3:].lstrip('<')
+            name_section = raw_clean[1:].lstrip('<')
+        elif len(raw_clean) >= 3 and raw_clean[:3].isalpha() and raw_clean[3:5] != '<<':
+            country = raw_clean[:3]
+            name_section = raw_clean[3:].lstrip('<')
         else:
-            name_section = raw_after_p
+            name_section = raw_clean
             
         # Primary identifier (surname) is separated from given names by <<
         parts = [p for p in name_section.split('<<') if p.strip('<')]
@@ -736,16 +739,16 @@ def smart_read_mrz(reader, card_img):
         l1_h = l1_tok['h']
         l1_cy = l1_tok['cy']
         
-        # Gom các token trên cùng hàng Line 1
-        l1_row = [t for t in tokens if abs(t['cy'] - l1_cy) <= 0.45 * l1_h]
+        # Gom các token trên cùng hàng Line 1 (độ lệch rộng 1.2*H để bù nghiêng điện thoại)
+        l1_row = [t for t in tokens if abs(t['cy'] - l1_cy) <= 1.2 * l1_h]
         l1_row.sort(key=lambda x: x['cx'])
         l1 = ''.join(t['clean'] for t in l1_row)
         idx_p = l1.find('P<')
         if idx_p >= 0:
             l1 = l1[idx_p:]
             
-        # Gom các token trên hàng Line 2 (ngay dưới Line 1 từ 0.45*H đến 3.0*H)
-        l2_row = [t for t in tokens if (l1_cy + 0.45 * l1_h) < t['cy'] <= (l1_cy + 3.0 * l1_h)]
+        # Gom các token trên hàng Line 2 (ngay dưới Line 1 từ 0.5*H đến 4.0*H)
+        l2_row = [t for t in tokens if (l1_cy + 0.5 * l1_h) < t['cy'] <= (l1_cy + 4.0 * l1_h)]
         l2_row.sort(key=lambda x: x['cx'])
         l2 = ''.join(t['clean'] for t in l2_row)
         
@@ -757,15 +760,41 @@ def smart_read_mrz(reader, card_img):
                 l2_tok = t
                 l2_h = l2_tok['h']
                 l2_cy = l2_tok['cy']
-                l2_row = [t2 for t2 in tokens if abs(t2['cy'] - l2_cy) <= 0.45 * l2_h]
+                l2_row = [t2 for t2 in tokens if abs(t2['cy'] - l2_cy) <= 1.2 * l2_h]
                 l2_row.sort(key=lambda x: x['cx'])
                 l2 = ''.join(t2['clean'] for t2 in l2_row)
                 
                 if not l1:
-                    l1_row = [t2 for t2 in tokens if (l2_cy - 3.0 * l2_h) <= t2['cy'] < (l2_cy - 0.45 * l2_h)]
+                    l1_row = [t2 for t2 in tokens if (l2_cy - 4.0 * l2_h) <= t2['cy'] < (l2_cy - 0.5 * l2_h)]
                     l1_row.sort(key=lambda x: x['cx'])
                     l1 = ''.join(t2['clean'] for t2 in l1_row)
                 break
+                
+    # 3. Fallback: Quét trực tiếp dải đáy 35% (Bottom Crop MRZ Scanner)
+    if not l1 or not l2 or len(l1) < 20 or len(l2) < 20:
+        try:
+            bot_crop = card_img[int(h * 0.65):, :]
+            res_bot = reader.readtext(bot_crop, detail=1, paragraph=False)
+            bot_tokens = []
+            for b_box, b_txt, _ in res_bot:
+                cl = re.sub(r'[^A-Z0-9<]', '', b_txt.upper().replace(' ', ''))
+                if len(cl) >= 4 or '<' in cl:
+                    b_cy = (b_box[0][1] + b_box[2][1]) / 2.0
+                    b_cx = (b_box[0][0] + b_box[1][0]) / 2.0
+                    bot_tokens.append({'cy': b_cy, 'cx': b_cx, 'clean': cl})
+            if bot_tokens:
+                bot_tokens.sort(key=lambda x: x['cy'])
+                mid_y = sum(t['cy'] for t in bot_tokens) / len(bot_tokens)
+                r1 = [t for t in bot_tokens if t['cy'] < mid_y]
+                r2 = [t for t in bot_tokens if t['cy'] >= mid_y]
+                r1.sort(key=lambda x: x['cx'])
+                r2.sort(key=lambda x: x['cx'])
+                c1 = ''.join(t['clean'] for t in r1)
+                c2 = ''.join(t['clean'] for t in r2)
+                if len(c1) > len(l1): l1 = c1
+                if len(c2) > len(l2): l2 = c2
+        except:
+            pass
         
     return l1, l2
 
@@ -1055,7 +1084,10 @@ class IntelligentDocumentEngine:
             # D. Visual Nationality Fallback
             if not fields.get('nationality'):
                 for t in tokens:
-                    if any(k in t['text_no'] for k in ['BRITISH', 'GBR']):
+                    if any(k in t['text_no'] for k in ['RUSSIAN', 'RUSSI', 'РОССИЙСКАЯ', 'RUS']):
+                        fields['nationality'] = 'Nga (Russia)'
+                        break
+                    elif any(k in t['text_no'] for k in ['BRITISH', 'GBR']):
                         fields['nationality'] = 'Vương Quốc Anh (United Kingdom)'
                         break
                     elif any(k in t['text_no'] for k in ['ESPA', 'ESP']):
@@ -1067,11 +1099,12 @@ class IntelligentDocumentEngine:
                     elif any(k in t['text_no'] for k in ['NEW ZEALAND', 'NZL', 'AOTEAROA']):
                         fields['nationality'] = 'New Zealand'
                         break
-                    elif any(k in t['text_no'] for k in ['FRANCAISE', 'FRANÇAISE', 'FRA']):
+                    elif any(k in t['text_no'] for k in ['FRANCAISE', 'FRANÇAISE', 'FRA', 'FRANCE']):
                         fields['nationality'] = 'Pháp (France)'
                         break
 
-            # E. Visual DOB Fallback (Multi-language: English, French, German, Spanish, Vietnamese)
+            # E. Visual DOB Fallback (Multi-language: Russian, English, French, German, Spanish, Vietnamese)
+            # Ràng buộc chặt chẽ: Ngày sinh KHÔNG THỂ là năm >= 2024!
             if not fields.get('birth_date') or not re.match(r'^[0-3][0-9]/[0-1][0-9]/[1-2][0-9]{3}$', fields.get('birth_date', '')):
                 MONTH_LOOKUP = {
                     'JAN': '01', 'FEB': '02', 'FEV': '02', 'MAR': '03', 'APR': '04', 'AVR': '04',
@@ -1083,7 +1116,7 @@ class IntelligentDocumentEngine:
                 for t in tokens:
                     txt = t['text'].upper()
                     # Pattern: 15 AUG 1974 or 28 AOU 1993
-                    m_txt = re.search(r'\b([0-3]?[0-9])\s+([A-Z]{3,4})\s+(19[4-9][0-9]|20[0-2][0-9])\b', txt)
+                    m_txt = re.search(r'\b([0-3]?[0-9])\s+([A-Z]{3,4})\s+(19[3-9][0-9]|20[0-1][0-9])\b', txt)
                     if m_txt:
                         dd = int(m_txt.group(1))
                         mon_str = m_txt.group(2)[:3]
@@ -1091,8 +1124,8 @@ class IntelligentDocumentEngine:
                         if mon_str in MONTH_LOOKUP:
                             found_dob = f"{dd:02d}/{MONTH_LOOKUP[mon_str]}/{year}"
                             break
-                    # Pattern: 15/08/1974 or 15.08.1974 or 15-08-1974
-                    m_dig = re.search(r'\b([0-3]?[0-9])[\/\.\-]([0-1]?[0-9])[\/\.\-](19[4-9][0-9]|20[0-2][0-9])\b', txt)
+                    # Pattern: 20.11.1972 or 15/08/1974
+                    m_dig = re.search(r'\b([0-3]?[0-9])[\/\.\-]([0-1]?[0-9])[\/\.\-](19[3-9][0-9]|20[0-1][0-9])\b', txt)
                     if m_dig:
                         dd = int(m_dig.group(1))
                         mm = int(m_dig.group(2))
@@ -1103,14 +1136,29 @@ class IntelligentDocumentEngine:
                 if found_dob:
                     fields['birth_date'] = found_dob
 
-
-            # F. Visual Gender Fallback
+            # F. Visual Gender Fallback (Hỗ trợ Nga Ж/F, Anh F/M, Pháp M/F, Đức, Hà Lan)
             if not fields.get('gender'):
-                for t in tokens:
-                    if re.search(r'[0-9]{7}[MF<]', t['text_no']):
-                        m = re.search(r'[0-9]{7}([MF])', t['text_no'])
-                        if m:
-                            fields['gender'] = 'Nữ' if m.group(1) == 'F' else 'Nam'
+                for t in body_tokens:
+                    t_str = t['text'].upper()
+                    # 1. Nữ: Nga Ж / F, Anh Female, Pháp F, v.v.
+                    if any(k in t_str for k in ['Ж / F', 'Ж/F', 'Ж /F', 'Ж/ F', 'FEMALE', 'FEMININ', 'FEMENINO', 'VROUW', 'FRAU', 'WEIBLICH', ' NỮ', '/ F', '/F', 'SEX F', 'SEXE F', 'SEXE/F', 'TAANE-WAHINE F']):
+                        fields['gender'] = 'Nữ'
+                        crops['gender'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
+                        break
+                    # 2. Nam: Nga М / M, Anh Male, Pháp M, v.v.
+                    elif any(k in t_str for k in ['М / M', 'М/M', 'М /M', 'М/ M', 'MALE', 'MASCULIN', 'MASCULINO', 'MAN', 'MANN', 'MANNLICH', ' NAM', '/ M', '/M', 'SEX M', 'SEXE M', 'SEXE/M']):
+                        fields['gender'] = 'Nam'
+                        crops['gender'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
+                        break
+                    elif t_str.strip() in ['F', 'FEMALE', 'Ж']:
+                        if (0.25 * h) < t['cy'] < (0.75 * h):
+                            fields['gender'] = 'Nữ'
+                            crops['gender'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
+                            break
+                    elif t_str.strip() in ['M', 'MALE', 'М']:
+                        if (0.25 * h) < t['cy'] < (0.75 * h):
+                            fields['gender'] = 'Nam'
+                            crops['gender'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                             break
 
             # G. Visual Expiry Fallback
@@ -1141,16 +1189,10 @@ class IntelligentDocumentEngine:
                     if gn_upper in t['text_no'] or any(w in t['text_no'] for w in gn_upper.split()):
                         crops['given_names'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                 # Visual nationality
-                if any(k in t['text_no'] for k in ['CYPRIOT', 'BRITISH', 'CITIZEN', 'DEUTSCH', 'IRISH', 'VIETNAMESE', 'ESPANOLA', 'ESPAÑOLA', 'SPANISH', 'NATIONALITY', 'NACIONALIDAD']):
+                if any(k in t['text_no'] for k in ['RUSSIAN', 'CYPRIOT', 'BRITISH', 'CITIZEN', 'DEUTSCH', 'IRISH', 'VIETNAMESE', 'ESPANOLA', 'ESPAÑOLA', 'SPANISH', 'NATIONALITY', 'NACIONALIDAD']):
                     crops['nationality'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
-                # Visual birth date
-                if any(k in t['text_no'] for k in ['1980', '1979', '2017', '2005', '1984', '1999', 'OCT 79', '14/12/1980', '06/10/2005', '02 01 1999', '02.01.1999']):
-                    crops['birth_date'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
-                # Visual expiry
-                if any(k in t['text_no'] for k in ['2030', '2032', '2031', '2034', '2027', '2026', '2044', '15/06/2030', '14/01/2032', '18/03/2034', '04 07 2027', '30 04 2026']):
-                    crops['expiry'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                 # Place of birth by keywords
-                if any(k in t['text_no'] for k in ['STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'TOULOUSE', 'NICE', 'NANTES', 'MONTPELLIER', 'BORDEAUX', 'LILLE', 'RENNES', 'AMSTERDAM', 'ROTTERDAM', 'OISTERWIJK', 'TILBURG', 'UTRECHT', 'NURNBERG', 'NUREMBERG', 'SCHWABACH', 'LEFKOSIA', 'NICOSIA', 'LIMASSOL', 'LARNACA', 'ATHENS', 'BIRMINGHAM', 'LONDON', 'DUBLIN', 'BERLIN', 'MUNCHEN', 'MUNICH', 'HAMBURG', 'FRANKFURT', 'HANOI', 'SAIGON', 'DA NANG', 'PALMA', 'MALLORCA', 'BALEARS', 'MADRID', 'BARCELONA', 'VALENCIA', 'SEVILLA']):
+                if any(k in t['text_no'] for k in ['AUCKLAND', 'WELLINGTON', 'CHRISTCHURCH', 'STAVROPOL', 'MOSCOW', 'STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'TOULOUSE', 'NICE', 'NANTES', 'MONTPELLIER', 'BORDEAUX', 'LILLE', 'RENNES', 'AMSTERDAM', 'ROTTERDAM', 'OISTERWIJK', 'TILBURG', 'UTRECHT', 'NURNBERG', 'NUREMBERG', 'SCHWABACH', 'LEFKOSIA', 'NICOSIA', 'LIMASSOL', 'LARNACA', 'ATHENS', 'BIRMINGHAM', 'LONDON', 'DUBLIN', 'BERLIN', 'MUNCHEN', 'MUNICH', 'HAMBURG', 'FRANKFURT', 'HANOI', 'SAIGON', 'DA NANG', 'PALMA', 'MALLORCA', 'BALEARS', 'MADRID', 'BARCELONA', 'VALENCIA', 'SEVILLA']):
                     fields['place_of_birth'] = t['text'].title()
                     crops['place_of_birth'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                     
