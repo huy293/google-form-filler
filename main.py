@@ -289,14 +289,14 @@ def _sync_extract(contents: bytes):
     
     t_eng = time.time()
     engine = cccd_app.IntelligentDocumentEngine(reader)
-    doc_type, fields, crops, mrz_parsed = engine.process(oriented_img)
+    doc_type, fields, crops, mrz_parsed, final_img = engine.process(oriented_img)
     print(f"[EXTRACT] 3. Engine process finished ({doc_type}) in {time.time()-t_eng:.2f}s")
     
     clean_fields = {k: v for k, v in fields.items() if v}
             
     # Generate document thumbnail for UI display
     t_warp = time.time()
-    card_img = cccd_app.warp_document(oriented_img, doc_type)
+    card_img = cccd_app.warp_document(final_img, doc_type)
     success, buf = cv2.imencode(".jpg", card_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     doc_img_b64 = "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8') if success else ""
     print(f"[EXTRACT] 4. Warped & encoded thumbnail in {time.time()-t_warp:.2f}s. Total time: {time.time()-t0:.2f}s")

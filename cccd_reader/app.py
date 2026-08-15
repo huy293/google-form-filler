@@ -778,10 +778,6 @@ def warp_document(img, doc_type='cccd_old'):
     if img is None or img.size == 0:
         return img
         
-    h_orig, w_orig = img.shape[:2]
-    if h_orig > w_orig:
-        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-        
     out_w, out_h = (900, 634) if doc_type == 'passport' else (900, 568)
     h, w = img.shape[:2]
     
@@ -908,6 +904,14 @@ class IntelligentDocumentEngine:
                 'cx': (x0 + x1) / 2.0, 'cy': (y0 + y1) / 2.0,
                 'prob': prob
             })
+
+        # 1.5 Auto-Detect Upside Down (ICAO Doc 9303: MRZ is ALWAYS at the bottom!)
+        # If MRZ signature (P<, <<, IDVNM) is at the TOP (cy < 0.45 * h),
+        # the entire document is upside down (180 deg rotated)!
+        top_mrz_count = sum(1 for tok in tokens if tok['cy'] < 0.45 * h and ('P<' in tok['text_no'] or '<<<' in tok['text_no'] or tok['text_no'].startswith('P<') or tok['text_no'].startswith('P8') or tok['text_no'].startswith('PY')))
+        if top_mrz_count > 0:
+            print("[INFO] Document is upside down (MRZ detected at top)! Rotating 180 degrees...")
+            return self.process(cv2.rotate(img, cv2.ROTATE_180))
 
         all_text_no = ' '.join(t['text_no'] for t in tokens)
         
@@ -1457,7 +1461,7 @@ class IntelligentDocumentEngine:
                     fields.get('gender', '')
                 )
 
-        return doc_type, fields, crops, mrz_parsed
+        return doc_type, fields, crops, mrz_parsed, img
 
 
 def smart_orient_document(img, reader):
