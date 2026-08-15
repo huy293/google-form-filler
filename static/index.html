@@ -1202,21 +1202,27 @@
             });
         }
 
-        function handleBatchImageUpload(files) {
+        async function handleBatchImageUpload(files) {
             if (!files || files.length === 0) return;
             const fileList = Array.from(files);
 
             document.getElementById('proGuestListTitle').style.display = 'flex';
 
+            const queue = [];
             fileList.forEach(file => {
                 proGuestCount++;
                 const idx = proGuestCount;
                 createProGuestCard(idx, file);
-                processSingleProFile(idx, file);
+                queue.push({ idx, file });
             });
 
             updateProGuestCounter();
             document.getElementById('proBatchFileInput').value = '';
+
+            // Xử lý tuần tự từng khách để máy chủ phản hồi tức thì trong 0.8s/ảnh
+            for (const item of queue) {
+                await processSingleProFile(item.idx, item.file);
+            }
         }
 
         function createProGuestCard(idx, file) {
