@@ -769,6 +769,11 @@ def warp_document(img, doc_type='cccd_old'):
     """Cắt thẻ chuẩn hoá và bảo toàn kích thước chuẩn (Tự phát hiện viền thẻ trên ảnh chụp điện thoại / VNeID / Scanner)"""
     if img is None or img.size == 0:
         return img
+        
+    h_orig, w_orig = img.shape[:2]
+    if h_orig > w_orig:
+        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        
     out_w, out_h = (900, 634) if doc_type == 'passport' else (900, 568)
     h, w = img.shape[:2]
     

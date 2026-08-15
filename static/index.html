@@ -753,9 +753,9 @@
         .lightbox-container {
             display: flex;
             flex-direction: column;
-            width: 100%;
-            max-width: 900px;
-            height: 94vh;
+            width: auto;
+            max-width: min(780px, 92vw);
+            max-height: 82vh;
             background: #110e24;
             border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 16px;
@@ -767,12 +767,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 18px;
+            padding: 10px 16px;
             background: rgba(255, 255, 255, 0.03);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
         }
 
-        .lightbox-caption { font-size: 14px; font-weight: 700; color: #fff; }
+        .lightbox-caption { font-size: 13px; font-weight: 700; color: #fff; }
         .lightbox-counter { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
 
         .lightbox-close {
@@ -781,6 +782,8 @@
             color: #fff;
             font-size: 24px;
             cursor: pointer;
+            line-height: 1;
+            padding: 4px;
         }
 
         .lightbox-stage {
@@ -790,12 +793,19 @@
             align-items: center;
             justify-content: center;
             background: #080611;
+            padding: 16px;
+            overflow: hidden;
+            max-height: calc(82vh - 110px);
         }
 
         .lightbox-img {
             max-width: 100%;
-            max-height: 100%;
+            max-height: calc(82vh - 140px);
+            height: auto;
+            width: auto;
             object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
         .lightbox-nav-btn {
