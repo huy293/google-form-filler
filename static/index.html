@@ -1364,6 +1364,12 @@
             const docWrapper = document.getElementById(`docPreviewWrapper-${idx}`);
             const docImg = document.getElementById(`docPreviewImg-${idx}`);
 
+            if (statusDiv) {
+                statusDiv.style.display = 'flex';
+                statusDiv.innerHTML = `<span style="color: var(--accent-gold); font-weight:700;">⏳ AI đang nhận diện & trích xuất dữ liệu...</span>`;
+            }
+            if (docBadge) docBadge.textContent = "Đang quét...";
+
             try {
                 // Tự động nén ảnh chụp điện thoại xuống kích thước tối ưu (chỉ mất 0.02s trong trình duyệt)
                 const optimizedBlob = await compressImageForOCR(file);
