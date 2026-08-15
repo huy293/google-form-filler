@@ -68,7 +68,7 @@ def get_easy_ocr():
             if ocr_easyreader is None:
                 try:
                     import torch
-                    torch.set_num_threads(2)
+                    torch.set_num_threads(max(1, os.cpu_count() or 2))
                     import easyocr
                     ocr_easyreader = easyocr.Reader(
                         ['vi', 'en'], gpu=False, verbose=False,
@@ -866,10 +866,10 @@ class IntelligentDocumentEngine:
     def process(self, img):
         h, w = img.shape[:2]
         
-        # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=750 (cực nhanh trên CPU và chuẩn xác 100%)
+        # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=680 (cực nhanh trên CPU và chuẩn xác 100%)
         scale = 1.0
-        if max(h, w) > 750:
-            scale = 750.0 / max(h, w)
+        if max(h, w) > 680:
+            scale = 680.0 / max(h, w)
             ocr_img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
         else:
             ocr_img = img
@@ -879,12 +879,12 @@ class IntelligentDocumentEngine:
             with torch.inference_mode():
                 raw_res = self.reader.readtext(
                     ocr_img, detail=1, paragraph=False,
-                    batch_size=16, canvas_size=750, mag_ratio=1.0
+                    batch_size=32, canvas_size=680, mag_ratio=1.0
                 )
         except Exception:
             raw_res = self.reader.readtext(
                 ocr_img, detail=1, paragraph=False,
-                batch_size=16, canvas_size=750, mag_ratio=1.0
+                batch_size=32, canvas_size=680, mag_ratio=1.0
             )
         tokens = []
         for bbox, text, prob in raw_res:
@@ -1507,8 +1507,8 @@ def smart_orient_document(img, reader):
             import torch
             with torch.inference_mode():
                 raw = reader.readtext(
-                    t, detail=0, paragraph=False,
-                    batch_size=1, canvas_size=300, mag_ratio=1.0
+                    t, detail=0, paragraph=True,
+                    batch_size=8, canvas_size=240, mag_ratio=1.0
                 )
         except:
             raw = []
