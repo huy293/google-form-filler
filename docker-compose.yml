@@ -12,5 +12,4 @@ services:
       - ADMIN_USER=admin
       - ADMIN_PASS=admin
     volumes:
-      - ./.sessions.json:/app/.sessions.json
-      - ./.pro_sessions.json:/app/.pro_sessions.json
+      - ./:/app
