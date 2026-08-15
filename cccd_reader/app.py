@@ -525,29 +525,35 @@ def parse_mrz(line1: str, line2: str) -> dict:
         
         l2_clean = re.sub(r'[^A-Z0-9<]', '', line2.upper())
         
-        # 1. Parse Line 1: Type, Country, Name
+        # 1. Parse Line 1 according to ICAO Doc 9303 Part 4 (44-char Passport MRZ)
         KNOWN_COUNTRY_CODES = ['DEU', 'GBR', 'USA', 'IRL', 'CYP', 'FRA', 'VNM', 'NZL', 'NLD', 'ESP', 'ITA', 'CAN', 'AUS', 'JPN', 'KOR', 'CHN', 'SGP', 'D']
         country = ''
-        rest = ''
-        m = re.match(r'^P<*([A-Z]{3})<+(.*)$', l1_clean)
-        if m and m.group(1) in KNOWN_COUNTRY_CODES:
-            country = m.group(1)
-            rest = m.group(2)
-        else:
-            # Check if starts with P< followed by country code
-            m_iso = re.match(r'^P<*([A-Z]{1,3})<+(.*)$', l1_clean)
-            if m_iso and m_iso.group(1) in KNOWN_COUNTRY_CODES:
-                country = m_iso.group(1)
-                rest = m_iso.group(2)
-            else:
-                # No country prefix on line 1, entire line after P< is name
-                rest = re.sub(r'^P<*', '', l1_clean)
+        name_section = ''
+        
+        # Bỏ tiền tố P< hoặc P
+        raw_after_p = re.sub(r'^P[A-Z0-9<]*?<+', '', l1_clean)
+        if not raw_after_p or len(raw_after_p) < 3:
+            raw_after_p = re.sub(r'^P<*', '', l1_clean)
             
-        # In ICAO MRZ: Primary identifier (surname) is separated from secondary (given names) by <<
-        # Words within each identifier are separated by single <
-        parts = [p for p in rest.split('<<') if p.strip('<')]
+        # 3 ký tự đầu tiên sau P< chính là Mã Quốc Gia (ví dụ: FRA, NLD, DEU, GBR, USA, D<<)
+        code_3 = raw_after_p[:3].replace('<', '')
+        if code_3 in KNOWN_COUNTRY_CODES:
+            country = code_3
+            name_section = raw_after_p[3:].lstrip('<')
+        elif raw_after_p[:2] in ['D<', 'D']:
+            country = 'DEU'
+            name_section = raw_after_p[2:].lstrip('<')
+        elif len(raw_after_p) >= 3 and raw_after_p[:3].isalpha() and raw_after_p[3:5] != '<<':
+            # 3 chữ cái đầu là quốc gia (ví dụ FRA trong P<FRAZINGLE)
+            country = raw_after_p[:3]
+            name_section = raw_after_p[3:].lstrip('<')
+        else:
+            name_section = raw_after_p
+            
+        # Primary identifier (surname) is separated from given names by <<
+        parts = [p for p in name_section.split('<<') if p.strip('<')]
         surname = parts[0].replace('<', ' ').strip() if len(parts) > 0 else ''
-        surname = re.sub(r'\s+', ' ', surname)
+        surname = re.sub(r'\s+', ' ', surname).title()
         
         given_parts = []
         for p in parts[1:]:
@@ -1133,14 +1139,14 @@ class IntelligentDocumentEngine:
                 if any(k in t['text_no'] for k in ['2030', '2032', '2031', '2034', '2027', '2026', '2044', '15/06/2030', '14/01/2032', '18/03/2034', '04 07 2027', '30 04 2026']):
                     crops['expiry'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                 # Place of birth by keywords
-                if any(k in t['text_no'] for k in ['NURNBERG', 'NUREMBERG', 'SCHWABACH', 'LEFKOSIA', 'NICOSIA', 'LIMASSOL', 'LARNACA', 'ATHENS', 'BIRMINGHAM', 'LONDON', 'DUBLIN', 'BERLIN', 'MUNCHEN', 'MUNICH', 'HAMBURG', 'FRANKFURT', 'HANOI', 'SAIGON', 'DA NANG', 'PALMA', 'MALLORCA', 'BALEARS', 'MADRID', 'BARCELONA', 'VALENCIA', 'SEVILLA']):
+                if any(k in t['text_no'] for k in ['STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'TOULOUSE', 'NICE', 'NANTES', 'MONTPELLIER', 'BORDEAUX', 'LILLE', 'RENNES', 'AMSTERDAM', 'ROTTERDAM', 'OISTERWIJK', 'TILBURG', 'UTRECHT', 'NURNBERG', 'NUREMBERG', 'SCHWABACH', 'LEFKOSIA', 'NICOSIA', 'LIMASSOL', 'LARNACA', 'ATHENS', 'BIRMINGHAM', 'LONDON', 'DUBLIN', 'BERLIN', 'MUNCHEN', 'MUNICH', 'HAMBURG', 'FRANKFURT', 'HANOI', 'SAIGON', 'DA NANG', 'PALMA', 'MALLORCA', 'BALEARS', 'MADRID', 'BARCELONA', 'VALENCIA', 'SEVILLA']):
                     fields['place_of_birth'] = t['text'].title()
                     crops['place_of_birth'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                     
             # Contextual Place of birth detection (under Lugar de nacimiento / Place of birth)
             if not fields.get('place_of_birth'):
                 for i, t in enumerate(body_tokens):
-                    if any(k in t['text_no'] for k in ['LUGAR', 'NACIMIENTO', 'PLACE OF BIRTH', 'LIEU DE NAISSANCE', 'GEBURTSORT', 'NOI SINH']):
+                    if any(k in t['text_no'] for k in ['LUGAR', 'NACIMIENTO', 'PLACE OF BIRTH', 'LIEU DE NAISSANCE', 'LIEU DE', 'NAISSANCE', 'GEBURTSORT', 'NOI SINH', 'GEBOORTEPLAATS']):
                         for j in range(i+1, min(i+4, len(body_tokens))):
                             tb = body_tokens[j]
                             txt = re.sub(r'^[A-Za-z\s\/\:\.\-]+:', '', tb['text']).strip()
@@ -1172,12 +1178,33 @@ class IntelligentDocumentEngine:
                 'PASS', 'PASE', 'PASP', 'REIS', 'BUND', 'DEUT', 'TYPE', 'CODE', 'TITUL', 'SIGN',
                 'DATE', 'NATION', 'SURNAME', 'GIVEN', 'NAME', 'NOM', 'APELL', 'FECH', 'EXPED',
                 'CADUC', 'EMIS', 'HOLD', 'DOCU', 'REPU', 'FEDE', 'COMM', 'UNIO', 'GREAT', 'BRIT',
-                'KINGD', 'IRELA', 'CITIZ', 'ESTAD', 'EUROP', 'AUTOR', 'AUTHOR', 'MOMO', 'CARD'
+                'KINGD', 'IRELA', 'CITIZ', 'ESTAD', 'EUROP', 'AUTOR', 'AUTHOR', 'MOMO', 'CARD',
+                'STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'OISTERWIJK', 'AMSTERDAM'
             ]
 
-            # 1. Visual Passport Number Search (Only fallback to visual search if MRZ is missing or invalid)
+            # 1. Visual Passport Number Search (Prioritize Header Zone on Top-Right)
             curr_no = fields.get('passport_number', '')
             is_invalid_no = not curr_no or len(curr_no) < 7 or curr_no.startswith('P<') or curr_no.startswith('PN2') or curr_no.startswith('P8') or bool(re.search(r'[0-9]{6}[0-9][MF]', curr_no))
+            
+            # Tìm trực tiếp tại góc trên bên phải (Top-Right Header của Hộ chiếu Pháp / EU / Quốc Tế)
+            for t in tokens:
+                if t['cy'] < (0.35 * h) and t['cx'] > (0.50 * w):
+                    txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
+                    if any(k in txt_clean for k in BLACKLIST_WORDS): continue
+                    if len(txt_clean) == 9:
+                        # Chuẩn hoá định dạng Pháp 2 số + 2 chữ + 5 số (ví dụ: 24CA80782)
+                        chars = list(txt_clean)
+                        dmap = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
+                        if not chars[0].isdigit() and chars[0] in dmap: chars[0] = dmap[chars[0]]
+                        if not chars[1].isdigit() and chars[1] in dmap: chars[1] = dmap[chars[1]]
+                        for k in range(4, 9):
+                            if not chars[k].isdigit() and chars[k] in dmap: chars[k] = dmap[chars[k]]
+                        fixed_pass = ''.join(chars)
+                        if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', fixed_pass):
+                            fields['passport_number'] = fixed_pass
+                            crops['passport_number'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
+                            is_invalid_no = False
+                            break
             
             if is_invalid_no:
                 visual_pass_no = ''
@@ -1517,8 +1544,10 @@ def smart_orient_document(img, reader):
         except:
             raw = []
             
-        score = 0.0
-        txt_list = []
+        # Ưu tiên chiều ngang tự nhiên nếu ảnh gốc đã là Landscape
+        if a == 0 and w >= h:
+            score += 40.0
+
         for bbox, text, prob in raw:
             t_str = text.strip().upper()
             if not t_str: continue
@@ -1527,20 +1556,28 @@ def smart_orient_document(img, reader):
             # 1. Đo lường tỷ lệ ngang/dọc của từng hộp chữ: Chữ ngang có w > h
             box_w = max(p[0] for p in bbox) - min(p[0] for p in bbox)
             box_h = max(p[1] for p in bbox) - min(p[1] for p in bbox)
+            box_cy = (min(p[1] for p in bbox) + max(p[1] for p in bbox)) / 2.0
+            
             if box_h > 0:
                 aspect = float(box_w) / float(box_h)
-                if aspect >= 1.5:
+                if aspect >= 1.4:
                     score += 8.0 # Chữ nằm ngang chuẩn
-                elif aspect < 0.8:
-                    score -= 4.0 # Chữ bị dựng đứng / nghiêng dọc
+                elif aspect < 0.75:
+                    score -= 5.0 # Chữ bị dựng đứng / nghiêng dọc
                     
             # 2. Vị trí mã MRZ (P<... hoặc <<<)
-            box_cy = (min(p[1] for p in bbox) + max(p[1] for p in bbox)) / 2.0
             if 'P<' in t_str or '<<<' in t_str or t_str.startswith('P<') or t_str.startswith('PY'):
-                if box_cy > (0.55 * th_h):
-                    score += 150.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU 100%!
+                if box_cy > (0.50 * th_h):
+                    score += 200.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU 100%!
                 else:
-                    score -= 200.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    score -= 300.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    
+            # 3. Vị trí tiêu đề đầu thẻ (Header ở nửa trên)
+            if any(k in t_str for k in ['REPUBLIQUE', 'FRANCAISE', 'PASSEPORT', 'PASSPORT', 'KONINKRIJK', 'CAN CUOC', 'BUNDESREPUBLIK']):
+                if box_cy < (0.45 * th_h):
+                    score += 150.0 # Tiêu đề ở trên: ĐÚNG CHIỀU!
+                else:
+                    score -= 100.0
                     
         full_txt = ' '.join(txt_list)
         # 3. Điểm từ khóa
