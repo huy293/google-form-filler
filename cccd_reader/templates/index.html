@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR CCCD & Hộ Chiếu — Tự Động Điền Form</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --card:      #21262d;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #3fb950;
+    --passport:  #d29922;
+    --text:      #f0f6fc;
+    --muted:     #8b949e;
+    --red:       #f85149;
+    --radius:    12px;
+    --shadow:    0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .header h1 {
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #58a6ff 0%, #3fb950 50%, #d29922 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  /* ── Quick sample bar ── */
+  .sample-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 12px 18px;
+    border-radius: var(--radius);
+  }
+  .sample-bar span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .sample-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sample-btn:hover {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.1);
+    transform: translateY(-1px);
+  }
+  .sample-btn option, select option {
+    background-color: #161b22 !important;
+    color: #f0f6fc !important;
+    padding: 8px 12px;
+  }
+
+  /* ── Layout grid ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Panel Cards ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+  .panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ── Drop Zone ── */
+  #drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--card);
+    position: relative;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.05);
+  }
+  #drop-zone .icon { font-size: 40px; opacity: 0.8; }
+  #drop-zone p { color: var(--muted); font-size: 13px; }
+  #drop-zone strong { color: var(--accent); }
+  #file-input { display: none; }
+
+  /* ── Preview with Card Overlay ── */
+  .preview-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    display: none;
+    border: 1px solid var(--border);
+  }
+  #img-preview {
+    width: 100%;
+    display: block;
+    object-fit: contain;
+    max-height: 380px;
+  }
+  #card-warped-view {
+    width: 100%;
+    display: none;
+    object-fit: contain;
+    max-height: 380px;
+  }
+
+  /* ── Status Bar ── */
+  #status-bar {
+    display: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    align-items: center;
+    gap: 10px;
+  }
+  #status-bar.loading {
+    display: flex;
+    background: rgba(88, 166, 255, 0.12);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    color: var(--accent);
+  }
+  #status-bar.success {
+    display: flex;
+    background: rgba(63, 185, 80, 0.12);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    color: var(--accent2);
+  }
+  #status-bar.error {
+    display: flex;
+    background: rgba(248, 81, 73, 0.12);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    color: var(--red);
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-blue     { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+  .badge-green    { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); }
+  .badge-passport { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.3); }
+  .badge-purple   { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.3); }
+
+  /* ── Form Group ── */
+  .field-group { display: flex; flex-direction: column; gap: 12px; }
+
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: fadeIn 0.3s ease both;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .field-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .field-inner {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card);
+    transition: border-color 0.2s;
+  }
+  .field-inner:focus-within { border-color: var(--accent); }
+
+  .field-crop {
+    width: 90px;
+    min-width: 90px;
+    max-height: 46px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #111418;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .field-crop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s;
+  }
+  .field-crop:hover img { transform: scale(1.08); }
+
+  .field-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .field-input.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: #58a6ff;
+  }
+  .field-input.filled {
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  /* ── MRZ Special Box ── */
+  .mrz-card {
+    background: #0f141c;
+    border: 1px solid #30363d;
+    border-left: 3px solid #d29922;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mrz-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #d29922;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mrz-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: #79c0ff;
+    letter-spacing: 1px;
+    word-break: break-all;
+  }
+
+  /* ── Action Buttons ── */
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0d1117;
+  }
+  .btn-primary:hover {
+    background: #79c0ff;
+  }
+  .btn-secondary {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover {
+    border-color: var(--muted);
+  }
+
+  /* ── Lightbox ── */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 20px;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+    border: 2px solid var(--border);
+  }
+  #lightbox-close {
+    position: absolute;
+    top: 20px; right: 28px;
+    color: #fff;
+    font-size: 32px;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Trích Xuất Thông Tin Giấy Tờ Tuỳ Thân</h1>
+    <p>Tự động nhận diện & trích xuất CCCD Gắn Chip Cũ, Căn Cước Mới 2024 và Hộ Chiếu Quốc Tế (ICAO TD3)</p>
+  </div>
+
+  <!-- Quick Sample Bar -->
+  <div class="sample-bar">
+    <span>⚡ Thử nghiệm 1 chạm:</span>
+    <button class="sample-btn" onclick="loadSample('cccd_old')">🪪 CCCD Gắn Chip (Cũ)</button>
+    <button class="sample-btn" onclick="loadSample('cc_new')">🆔 Thẻ Căn Cước (Mới 2024)</button>
+    <button class="sample-btn" onclick="loadSample('passport')">🛂 Hộ Chiếu Mẫu (Passport)</button>
+    <select id="dataset-picker" class="sample-btn" style="background: #161b22; color: #58a6ff; border: 1px solid var(--accent); cursor: pointer; max-width: 280px; font-weight: 600;" onchange="loadDatasetPassport(this.value)">
+      <option value="" style="background:#161b22;color:#8b949e;">📁 Chọn Hộ Chiếu từ Dataset (39 mẫu)...</option>
+    </select>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="two-col">
+    <!-- Left Column: Upload & Normalized Card View -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>1. Ảnh Giấy Tờ Gốc / Chuẩn Hoá</div>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;flex:none;" onclick="resetAll()">Làm mới</button>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept="image/*">
+        <div id="upload-hint">
+          <div class="icon">📷</div>
+          <p>Kéo thả ảnh vào đây hoặc <strong>Bấm để chọn ảnh</strong></p>
+          <p style="font-size:11px;color:var(--muted)">Hỗ trợ JPG, PNG, WEBP — Tự động nhận diện và trích xuất ngay</p>
+        </div>
+      </div>
+
+      <!-- Preview Image Display -->
+      <div class="preview-wrapper" id="preview-wrapper">
+        <img id="img-preview" alt="Ảnh đã chuẩn hoá">
+      </div>
+
+      <!-- Processing Status -->
+      <div id="status-bar">
+        <span class="spinner" id="spinner"></span>
+        <span id="status-text">Đang nhận diện...</span>
+      </div>
+    </div>
+
+    <!-- Right Column: Auto-Filled Form Fields -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:var(--accent2)"></span>2. Dữ Liệu Form Tự Động Điền</div>
+        <div id="layout-badge"></div>
+      </div>
+
+      <!-- Form Fields Group -->
+      <div class="field-group" id="field-group">
+        <div style="color:var(--muted);font-size:13px;text-align:center;padding:70px 20px;">
+          ← Tải ảnh hoặc chọn mẫu thử nghiệm ở trên để bắt đầu trích xuất
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions" id="action-bar" style="display:none;">
+        <button class="btn btn-secondary" onclick="copyJson()">📋 Sao chép JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox Modal for Zooming Crops -->
+<div id="lightbox" onclick="closeLightbox()">
+  <span id="lightbox-close">×</span>
+  <img id="lightbox-img" src="" alt="Zoom crop">
+</div>
+
+<script>
+const dropZone       = document.getElementById('drop-zone');
+const fileInput      = document.getElementById('file-input');
+const previewWrapper = document.getElementById('preview-wrapper');
+const imgPreview     = document.getElementById('img-preview');
+const uploadHint     = document.getElementById('upload-hint');
+const statusBar      = document.getElementById('status-bar');
+const statusText     = document.getElementById('status-text');
+const spinner        = document.getElementById('spinner');
+const fieldGroup     = document.getElementById('field-group');
+const layoutBadge    = document.getElementById('layout-badge');
+const actionBar      = document.getElementById('action-bar');
+
+let lastExtractedData = null;
+
+// ── Drag & Drop Handlers ──
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processImageFile(file);
+});
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) processImageFile(e.target.files[0]);
+});
+
+// ── Process Selected Image ──
+async function processImageFile(file) {
+  const url = URL.createObjectURL(file);
+  imgPreview.src = url;
+  previewWrapper.style.display = 'block';
+  dropZone.style.display = 'none';
+
+  showStatus('loading', 'Đang xử lý chuẩn hoá & OCR trích xuất thông tin...');
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('/api/extract', { method: 'POST', body: formData, cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Lỗi server');
+
+    if (data.card_image) {
+      imgPreview.src = 'data:image/jpeg;base64,' + data.card_image;
+    }
+
+    renderExtractionResult(data);
+    showStatus('success', `✓ ${data.layout_label} — Đã trích xuất thành công`);
+  } catch (err) {
+    showStatus('error', '⚠ ' + err.message);
+  }
+}
+
+// ── Load Sample Images ──
+async function loadSample(sampleType) {
+  showStatus('loading', `Đang tải mẫu ${sampleType}...`);
+  try {
+    const res = await fetch(`/api/sample/${sampleType}`);
+    const sample = await res.json();
+    if (!res.ok) throw new Error(sample.error || 'Không tìm thấy ảnh mẫu');
+
+    // Convert base64 to Blob & File
+    const byteChars = atob(sample.image_b64);
+    const byteNums = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNums);
+    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    const file = new File([blob], sample.name || 'sample.jpg', { type: 'image/jpeg' });
+
+    processImageFile(file);
+  } catch (err) {
+    showStatus('error', '⚠ ' + err.message);
+  }
+}
+
+async function initDatasetPicker() {
+  try {
+    const res = await fetch('/api/passports/list');
+    const data = await res.json();
+    const sel = document.getElementById('dataset-picker');
+    if (data.passports && data.passports.length > 0) {
+      sel.innerHTML = `<option value="" style="background:#161b22;color:#8b949e;">📁 Chọn Hộ Chiếu từ Dataset (${data.passports.length} mẫu)...</option>` +
+        data.passports.map((p, i) => `<option value="${p.filename}" style="background:#161b22;color:#f0f6fc;">Passport #${i+1} (${p.size_kb} KB)</option>`).join('');
+    }
+  } catch(e) {}
+}
+
+async function loadDatasetPassport(filename) {
+  if (!filename) return;
+  showStatus('loading', `Đang tải mẫu ${filename} từ dataset...`);
+  try {
+    const res = await fetch(`/api/passports/get/${encodeURIComponent(filename)}`);
+    const data = await res.json();
+    if (!data.image_b64) throw new Error('Không đọc được ảnh');
+    
+    const byteChars = atob(data.image_b64);
+    const byteNums = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNums);
+    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    const file = new File([blob], filename, { type: 'image/jpeg' });
+    processImageFile(file);
+  } catch (err) {
+    showStatus('error', '⚠ Lỗi tải mẫu: ' + err.message);
+  }
+}
+
+// Khởi chạy load danh sách dataset khi mở trang
+document.addEventListener('DOMContentLoaded', initDatasetPicker);
+
+// ── Render Results to Form ──
+function renderExtractionResult(data) {
+  lastExtractedData = data;
+  actionBar.style.display = 'flex';
+
+  // Badge Document Type
+  if (data.layout === 'passport') {
+    layoutBadge.innerHTML = '<span class="badge badge-passport">🛂 Hộ Chiếu (Passport)</span>';
+  } else if (data.layout === 'cc_new') {
+    layoutBadge.innerHTML = '<span class="badge badge-blue">🆔 Căn Cước Mới 2024</span>';
+  } else {
+    layoutBadge.innerHTML = '<span class="badge badge-green">🪪 CCCD Gắn Chip</span>';
+  }
+
+  fieldGroup.innerHTML = '';
+
+  const labels = data.field_labels || {};
+  const fields = data.fields || {};
+  const crops  = data.crops || {};
+
+  // Logical field ordering
+  const cccdOrder = [
+    'cccd_number',
+    'full_name',
+    'birth_date',
+    'gender',
+    'nationality',
+    'hometown',
+    'address',
+    'expiry'
+  ];
+  
+  const passportOrder = [
+    'passport_number',
+    'surname',
+    'given_names',
+    'nationality',
+    'birth_date',
+    'gender',
+    'place_of_birth',
+    'expiry'
+  ];
+  
+  const preferredOrder = data.layout === 'passport' ? passportOrder : cccdOrder;
+  const standardKeys = preferredOrder.filter(k => labels.hasOwnProperty(k));
+
+  for (const key of standardKeys) {
+    const label = labels[key] || key;
+    const val   = fields[key] || '';
+    const crop64= crops[key] || '';
+    const filled = val.length > 0;
+
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.innerHTML = `
+      <div class="field-label">
+        <span>${label}</span>
+        ${filled ? '<span class="badge badge-green" style="font-size:10px;padding:1px 6px;">✓ Tự điền</span>' : '<span style="color:var(--muted);font-size:10px;">(trống)</span>'}
+      </div>
+      <div class="field-inner">
+        <div class="field-crop" onclick="openLightbox('${crop64}')" title="Bấm để xem ảnh crop">
+          ${crop64 ? `<img src="data:image/jpeg;base64,${crop64}" alt="${label}">` : `<span style="font-size:10px;color:var(--muted)">N/A</span>`}
+        </div>
+        <input
+          class="field-input ${filled ? 'filled' : ''} ${key === 'cccd_number' || key === 'passport_number' ? 'mono' : ''}"
+          type="text"
+          id="field-${key}"
+          value="${val.replace(/"/g, '&quot;')}"
+          placeholder="Chưa có dữ liệu"
+        />
+      </div>
+    `;
+    fieldGroup.appendChild(row);
+  }
+
+  // If MRZ exists (Passport) -> Render Dedicated MRZ Section
+  if (data.layout === 'passport' && (fields['mrz_line1'] || fields['mrz_line2'])) {
+    const mrzBox = document.createElement('div');
+    mrzBox.className = 'mrz-card';
+    mrzBox.innerHTML = `
+      <div class="mrz-card-title">
+        <span>✈ Machine Readable Zone (MRZ 2 Dòng)</span>
+        <span class="badge badge-passport" style="font-size:9px;padding:1px 5px;">ICAO 9303</span>
+      </div>
+      <div class="mrz-line">${fields['mrz_line1'] || 'P<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'}</div>
+      <div class="mrz-line">${fields['mrz_line2'] || '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'}</div>
+    `;
+    fieldGroup.appendChild(mrzBox);
+  }
+}
+
+// ── Reset ──
+function resetAll() {
+  lastExtractedData = null;
+  fileInput.value = '';
+  imgPreview.src = '';
+  previewWrapper.style.display = 'none';
+  dropZone.style.display = 'flex';
+  fieldGroup.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:70px 20px;">← Tải ảnh hoặc chọn mẫu thử nghiệm ở trên để bắt đầu trích xuất</div>`;
+  layoutBadge.innerHTML = '';
+  actionBar.style.display = 'none';
+  hideStatus();
+}
+
+function showStatus(type, msg) {
+  statusBar.className = type;
+  statusText.textContent = msg;
+  spinner.style.display = type === 'loading' ? 'inline-block' : 'none';
+}
+function hideStatus() {
+  statusBar.className = '';
+  statusBar.style.display = 'none';
+}
+
+function copyJson() {
+  if (!lastExtractedData) return;
+  const jsonStr = JSON.stringify(lastExtractedData.fields, null, 2);
+  navigator.clipboard.writeText(jsonStr).then(() => {
+    alert('Đã sao chép dữ liệu JSON vào Clipboard!');
+  });
+}
+
+// ── Lightbox ──
+function openLightbox(b64) {
+  if (!b64) return;
+  document.getElementById('lightbox-img').src = 'data:image/jpeg;base64,' + b64;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
+</body>
+</html>

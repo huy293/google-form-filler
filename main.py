@@ -43,6 +43,10 @@ def _save_sessions(sessions: set):
     except Exception:
         pass
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "cccd_reader"))
+import app as cccd_app
+from fastapi import FastAPI, HTTPException, Response, Request, UploadFile, File
+
 ACTIVE_SESSIONS: set = _load_sessions()
 
 def is_authenticated(request: Request) -> bool:
@@ -51,15 +55,53 @@ def is_authenticated(request: Request) -> bool:
         return True
     return False
 
+# Pass Level 2 (PRO Mode) Configuration & Session
+PRO_PASS = "huyadmin2903"
+PRO_SESSION_FILE = os.path.join(os.path.dirname(__file__), ".pro_sessions.json")
+
+def _load_pro_sessions() -> set:
+    try:
+        if os.path.exists(PRO_SESSION_FILE):
+            with open(PRO_SESSION_FILE, "r") as f:
+                return set(json.load(f))
+    except Exception:
+        pass
+    return set()
+
+def _save_pro_sessions(sessions: set):
+    try:
+        with open(PRO_SESSION_FILE, "w") as f:
+            json.dump(list(sessions), f)
+    except Exception:
+        pass
+
+PRO_SESSIONS: set = _load_pro_sessions()
+
+def is_pro_authenticated(request: Request) -> bool:
+    pro_id = request.cookies.get("pro_session_id")
+    if pro_id and pro_id in PRO_SESSIONS:
+        return True
+    return False
+
 class LoginRequest(BaseModel):
     username: str
+    password: str
+
+class VerifyProRequest(BaseModel):
     password: str
 
 class SubmitRequest(BaseModel):
     unitCode: str
     guestId: str
     gender: str
-    sharedNation: str = ""  # Optional: shared nationality for whole group
+    sharedNation: str = ""
+    fullName: str = ""
+    birthDate: str = ""
+    birthYear: str = ""
+    nationality: str = ""
+    address: str = ""
+    visa: str = ""
+    visaExpDate: str = ""
 
 # Lists of names and addresses for realistic randomization
 REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
@@ -166,6 +208,78 @@ async def api_logout(request: Request, response: Response):
     response.delete_cookie("session_id")
     return {"success": True}
 
+@app.post("/api/verify-pro-pass")
+async def verify_pro_pass(data: VerifyProRequest, response: Response):
+    if data.password.strip() == PRO_PASS or data.password.strip() == "huyadmin2903":
+        token = secrets.token_urlsafe(32)
+        PRO_SESSIONS.add(token)
+        _save_pro_sessions(PRO_SESSIONS)
+        response.set_cookie(
+            key="pro_session_id",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 365  # 1 year persistent
+        )
+        return {"success": True, "token": token}
+    raise HTTPException(status_code=401, detail="Mật khẩu cấp 2 không chính xác!")
+
+@app.get("/api/pro-status")
+async def get_pro_status(request: Request):
+    return {"unlocked": is_pro_authenticated(request)}
+
+def _sync_extract(contents: bytes):
+    import numpy as np
+    import cv2
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return None
+    
+    reader = cccd_app.get_easy_ocr()
+    oriented_img, rot_deg = cccd_app.smart_orient_document(img, reader)
+    
+    engine = cccd_app.IntelligentDocumentEngine(reader)
+    doc_type, fields, crops, mrz_parsed = engine.process(oriented_img)
+    
+    clean_fields = {k: v for k, v in fields.items() if v}
+            
+    # Generate document thumbnail for UI display (Auto-crop to card/passport boundary like port 5000)
+    card_img = cccd_app.warp_document(oriented_img, doc_type)
+    success, buf = cv2.imencode(".jpg", card_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    doc_img_b64 = "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8') if success else ""
+
+    layout_label_map = {
+        'passport': '🛂 Hộ Chiếu Quốc Tế (Passport)',
+        'cc_new': '🆔 Thẻ Căn Cước Mới (2024)',
+        'cccd_old': '🪪 CCCD Gắn Chip (Trước 2023)'
+    }
+
+    return {
+        "success": True,
+        "layout_label": layout_label_map.get(doc_type, "🛂 Giấy Tờ Hợp Lệ"),
+        "doc_type": doc_type,
+        "fields": clean_fields,
+        "crops": crops,
+        "doc_image": doc_img_b64,
+        "rotation": rot_deg
+    }
+
+@app.post("/api/extract")
+async def extract_document(request: Request, image: UploadFile = File(...)):
+    if not is_authenticated(request):
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập hệ thống!")
+    if not is_pro_authenticated(request):
+        raise HTTPException(status_code=403, detail="Chức năng PRO yêu cầu mật khẩu cấp 2!")
+    
+    contents = await image.read()
+    result = await asyncio.to_thread(_sync_extract, contents)
+    if result is None:
+        raise HTTPException(status_code=400, detail="Không đọc được file ảnh!")
+    return result
+
+
+
 RUNNING_LOGS = []
 
 def log_step(step_name):
@@ -179,8 +293,6 @@ def log_step(step_name):
 async def get_status():
     global RUNNING_LOGS
     return {"logs": RUNNING_LOGS}
-
-
 
 async def js_fill(locator, value):
     await locator.first.evaluate("""
@@ -197,7 +309,7 @@ async def fill_form_playwright(data: SubmitRequest):
     global RUNNING_LOGS
     RUNNING_LOGS = []
     
-    # 1. Generate random values
+    # 1. Prepare values (Use PRO Real Data if provided, else Realistic Smart Randomization)
     rep_gender = random.choice(["male", "female"])
     rep_name = random.choice(REP_MALE_NAMES) if rep_gender == "male" else random.choice(REP_FEMALE_NAMES)
     
@@ -208,21 +320,40 @@ async def fill_form_playwright(data: SubmitRequest):
     # Check if the guestId is a Vietnamese CCCD (exactly 12 digits)
     guest_id_clean = "".join(c for c in data.guestId if c.isdigit())
     is_vietnamese_cccd = len(guest_id_clean) == 12 and data.guestId.isdigit()
+    gender = data.gender.lower() if data.gender else "female"
     
-    is_foreign = not is_vietnamese_cccd
-    gender = data.gender.lower()
-    
-    if is_foreign:
-        guest_name = random.choice(GUEST_MALE_NAMES[:13]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[:13])
-        # Use shared nation from group if provided, else random
-        nation = data.sharedNation if data.sharedNation else random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
+    # Guest Name
+    if data.fullName and data.fullName.strip():
+        guest_name = data.fullName.strip().upper()
     else:
-        guest_name = random.choice(GUEST_MALE_NAMES[13:]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[13:])
-        nation = "Việt Nam"
+        if is_vietnamese_cccd:
+            guest_name = random.choice(GUEST_MALE_NAMES[13:]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[13:])
+        else:
+            guest_name = random.choice(GUEST_MALE_NAMES[:13]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[:13])
+            
+    # Nationality
+    if data.nationality and data.nationality.strip():
+        nation = data.nationality.strip()
+    elif data.sharedNation and data.sharedNation.strip():
+        nation = data.sharedNation.strip()
+    else:
+        nation = "Việt Nam" if is_vietnamese_cccd else random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
         
-    birth_year = random.randint(1980, 2003)
-    visa = "Miễn VISA" if is_vietnamese_cccd else "Du lịch / Tourism"
-    
+    # Year of Birth
+    if data.birthYear and data.birthYear.strip():
+        birth_year = data.birthYear.strip()
+    elif data.birthDate and data.birthDate.strip():
+        parts = data.birthDate.strip().split('/')
+        birth_year = parts[-1] if len(parts) == 3 else data.birthDate.strip()[-4:]
+    else:
+        birth_year = str(random.randint(1980, 2003))
+        
+    # Visa & Visa Expiry
+    if is_vietnamese_cccd or nation == "Việt Nam" or "việt nam" in nation.lower():
+        visa = "Miễn VISA"
+    else:
+        visa = data.visa.strip() if (data.visa and data.visa.strip()) else "Du lịch / Tourism"
+        
     today = datetime.now()
     checkin_days = random.randint(0, 3)
     checkout_days = checkin_days + random.randint(1, 5)
@@ -231,9 +362,8 @@ async def fill_form_playwright(data: SubmitRequest):
     check_in_time = f"{random.randint(8, 20):02d}:{random.choice([0, 15, 30, 45]):02d}"
     check_out_date = (today + timedelta(days=checkout_days)).strftime("%Y-%m-%d")
     
-    # Visa Expiry
-    visa_exp_date = (today + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
-    address = random.choice(ADDRESSES)
+    visa_exp_date = data.visaExpDate.strip() if (data.visaExpDate and data.visaExpDate.strip()) else (today + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
+    address = data.address.strip() if (data.address and data.address.strip()) else random.choice(ADDRESSES)
     
     # Pack row data
     row_data = {
@@ -254,212 +384,231 @@ async def fill_form_playwright(data: SubmitRequest):
         "Cam kết tuân thủ": "Tôi đã đọc và đồng ý"
     }
     
-    log_step("1. Preparing form page...")
+    max_retries = 3
+    last_err = None
     
-    context = None
-    page = None
-    browser = None
-    
-    try:
-        async with async_playwright() as p:
-            launch_args = []
-            if os.name != 'nt':  # Linux/Docker
-                launch_args = [
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--single-process",
-                    "--js-flags=--max-old-space-size=128",
-                    "--disable-extensions",
-                    "--disable-default-apps"
-                ]
-            is_headless = os.name != 'nt'
-            browser = await p.chromium.launch(
-                headless=is_headless,
-                args=launch_args
-            )
-            
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={"width": 393, "height": 851},
-                is_mobile=True,
-                has_touch=True
-            )
-            # Bypassing webdriver detection
-            await context.add_init_script("delete navigator.__proto__.webdriver;")
-            
-            page = await context.new_page()
-            
-            # Block fonts, analytics, and tracking scripts
-            async def handle_route(route):
-                url = route.request.url.lower()
-                resource_type = route.request.resource_type
-                if any(domain in url for domain in [
-                    "google-analytics.com", "googletagmanager.com", "analytics", 
-                    "collect?", "doubleclick.net", "googleadservices.com",
-                    "fonts.googleapis.com", "fonts.gstatic.com"
-                ]) or resource_type in ["font"]:
-                    await route.abort()
-                else:
-                    await route.continue_()
-            await page.route("**/*", handle_route)
-            
-            await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=18000)
-            
-            # 1. Fill basic text fields
-            log_step("2. Filling basic text fields (Name, Passport, Visa, etc.)...")
-            fields_to_fill = {
-                "Họ và tên người đăng ký": "178418221",
-                "Số điện thoại người đăng ký": "2093418625",
-                "Họ và tên khách": "955098140",
-                "Năm sinh": "870248713",
-                "Mã Căn Hộ": "175253502",
-                "Hộ Chiếu_CCCD": "1388064463",
-                "VISA": "2009586042",
-                "Hạn VISA": "1149566062",
-                "Quốc tịch": "1515902134",
-                "Thông tin hộ khẩu": "2023500619"
-            }
-            
-            for label, entry_id in fields_to_fill.items():
-                val = row_data[label]
-                if not val:
-                    continue
-                container = page.locator(f'div[data-params*="{entry_id}"]')
-                if await container.count() > 0 and await container.first.is_visible():
-                    input_el = container.locator('input[type="text"], textarea')
-                    if await input_el.count() > 0 and await input_el.first.is_visible():
-                        await js_fill(input_el, val)
-                        
-            # Dropdown: Chủ thể - 117977297
-            log_step("3. Clicking dropdown subject...")
-            container = page.locator('div[data-params*="117977297"]')
-            await container.locator('div[role="listbox"]').first.click(force=True)
-            await asyncio.sleep(0.3)
-            options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"]')
-            if await options.count() == 0:
-                options = page.locator('div[role="option"]')
-            await options.first.wait_for(state="visible", timeout=5000)
-            target_option = options.filter(has_text="Khách đến thăm")
-            if await target_option.count() > 0:
-                await target_option.first.evaluate("el => el.click()")
-            else:
-                await options.nth(1).evaluate("el => el.click()")
-            await asyncio.sleep(0.3)
-            
-            # Dates: Ngày đến, Ngày ra
-            log_step("4. Filling check-in/out dates...")
-            date_fields = {
-                "Ngày đến": "1707290555",
-                "Ngày ra": "1028902383"
-            }
-            for label, entry_id in date_fields.items():
-                val = row_data[label]
-                container = page.locator(f'div[data-params*="{entry_id}"]')
-                await js_fill(container.locator('input[type="date"]'), val)
-                
-            # Time: Thời gian vào
-            log_step("5. Filling check-in time...")
-            time_val = row_data["Thời gian vào"]
-            container = page.locator('div[data-params*="1773051864"]')
-            native_time = container.locator('input[type="time"]')
-            if await native_time.count() > 0:
-                await js_fill(native_time, time_val)
-            else:
-                time_parts = time_val.split(':')
-                if len(time_parts) == 2:
-                    hour, minute = time_parts[0], time_parts[1]
-                    await js_fill(container.locator('input').nth(0), hour)
-                    await js_fill(container.locator('input').nth(1), minute)
-                    
-            # Agreement checkbox
-            log_step("6. Checking compliance checkbox...")
-            container = page.locator('div[data-params*="1651751105"]')
-            await container.locator('div[role="checkbox"], div[role="radio"]').first.click(force=True)
-            await asyncio.sleep(0.05)
-            
-            # Settle and take first screenshot
-            log_step("7. Capturing filled form screenshot (scrolled to passport)...")
-            passport_container = page.locator('div[data-params*="1388064463"]')
-            if await passport_container.count() > 0:
-                await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'end' })")
-            await asyncio.sleep(0.3)
-            filled_bytes = await page.screenshot(type="jpeg", quality=35)
-            screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
-            
-            # Click submit
-            log_step("8. Clicking Submit button...")
-            submit_btn = page.locator('div[role="button"].Y5sE8d').first
-            await submit_btn.click()
-            
-            # Wait for confirmation page
-            log_step("9. Waiting for confirmation page element...")
-            try:
-                await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=4000)
-            except Exception:
-                err_count = await page.locator('div[role="alert"], .iv77ob').count()
-                if err_count > 0:
-                    raise Exception("Sai định dạng Mã Căn Hộ hoặc thông tin nhập vào bị Google Form từ chối (Vui lòng điền đúng mẫu A-12.34)")
-                else:
-                    raise Exception("Không nhận được trang xác nhận gửi thành công từ Google Form (Hết thời gian chờ)")
-            await asyncio.sleep(0.1)
-            
-            # Take submitted screenshot
-            log_step("10. Capturing confirmation screenshot...")
-            submitted_bytes = await page.screenshot(type="jpeg", quality=35)
-            screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
-            
-            log_step("11. Done!")
-            print(f"Successfully submitted and captured screenshots for {guest_name}!")
-            
-            img_filled_id = cache_image(screenshot_filled_b64)
-            img_submitted_id = cache_image(screenshot_submitted_b64)
-            
-            return {
-                "success": True,
-                "guestName": guest_name,
-                "screenshot_filled": f"/api/image/{img_filled_id}" if img_filled_id else "",
-                "screenshot_submitted": f"/api/image/{img_submitted_id}" if img_submitted_id else ""
-            }
-            
-    except Exception as e:
-        err_msg = f"Error: {str(e)}"
-        log_step(err_msg)
-        print(f"Error filling form for {guest_name}: {e}")
+    for attempt in range(1, max_retries + 1):
+        context = None
+        page = None
+        browser = None
+        
         try:
-            if page:
-                await page.evaluate("window.scrollTo(0, 0);")
-                await asyncio.sleep(0.1)
-                err_bytes = await page.screenshot(type="jpeg", quality=30)
-                err_b64 = base64.b64encode(err_bytes).decode('utf-8')
+            if attempt > 1:
+                log_step(f"🔄 [{guest_name}] Đang tự động thử lại lần {attempt}/{max_retries}...")
             else:
-                err_b64 = ""
-        except Exception:
-            err_b64 = ""
-        err_img_id = cache_image(err_b64) if err_b64 else ""
-        return {
-            "success": False,
-            "error": f"Lỗi điền form: {str(e)}",
-            "screenshot_filled": f"/api/image/{err_img_id}" if err_img_id else "",
-            "screenshot_submitted": ""
-        }
-    finally:
-        if page:
-            try:
-                await page.close()
-            except Exception:
-                pass
-        if context:
-            try:
-                await context.close()
-            except Exception:
-                pass
-        if browser:
-            try:
-                await browser.close()
-            except Exception:
-                pass
+                log_step(f"1. [{guest_name}] Preparing form page...")
+            
+            async with async_playwright() as p:
+                launch_args = []
+                if os.name != 'nt':  # Linux/Docker
+                    launch_args = [
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--single-process",
+                        "--js-flags=--max-old-space-size=128",
+                        "--disable-extensions",
+                        "--disable-default-apps"
+                    ]
+                is_headless = os.name != 'nt'
+                browser = await p.chromium.launch(
+                    headless=is_headless,
+                    args=launch_args
+                )
+                
+                context = await browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport={"width": 393, "height": 851},
+                    is_mobile=True,
+                    has_touch=True
+                )
+                # Bypassing webdriver detection
+                await context.add_init_script("delete navigator.__proto__.webdriver;")
+                
+                page = await context.new_page()
+                
+                # Block fonts, analytics, and tracking scripts
+                async def handle_route(route):
+                    try:
+                        url = route.request.url.lower()
+                        resource_type = route.request.resource_type
+                        if any(domain in url for domain in [
+                            "google-analytics.com", "googletagmanager.com", "analytics", 
+                            "collect?", "doubleclick.net", "googleadservices.com",
+                            "fonts.googleapis.com", "fonts.gstatic.com"
+                        ]) or resource_type in ["font"]:
+                            await route.abort()
+                        else:
+                            await route.continue_()
+                    except Exception:
+                        pass
+                await page.route("**/*", handle_route)
+
+                
+                await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+                
+                # 1. Clean & Format Unit Code
+                unit_code_clean = row_data["Mã Căn Hộ"].strip().upper()
+                m_uc = re.match(r"^([A-Z])[-_\s.]*([0-9]{1,2})[-_\s.]*([0-9]{2})$", unit_code_clean)
+                if m_uc:
+                    unit_code_clean = f"{m_uc.group(1)}-{int(m_uc.group(2)):02d}.{int(m_uc.group(3)):02d}"
+                row_data["Mã Căn Hộ"] = unit_code_clean
+
+                # 2. Fill basic text fields
+                log_step(f"2. [{guest_name}] Filling basic text fields...")
+                fields_to_fill = {
+                    "Họ và tên người đăng ký": "178418221",
+                    "Số điện thoại người đăng ký": "2093418625",
+                    "Họ và tên khách": "955098140",
+                    "Năm sinh": "870248713",
+                    "Mã Căn Hộ": "175253502",
+                    "Hộ Chiếu_CCCD": "1388064463",
+                    "VISA": "2009586042",
+                    "Hạn VISA": "1149566062",
+                    "Quốc tịch": "1515902134",
+                    "Thông tin hộ khẩu": "2023500619"
+                }
+                
+                for label, entry_id in fields_to_fill.items():
+                    val = row_data[label]
+                    if not val:
+                        continue
+                    container = page.locator(f'div[data-params*="{entry_id}"]')
+                    if await container.count() > 0:
+                        input_el = container.locator('input[type="text"], textarea')
+                        if await input_el.count() > 0:
+                            await js_fill(input_el, val)
+                            
+                # 3. Dropdown: Chủ thể - 117977297 (Bulletproof Double Click + DOM Set)
+                log_step(f"3. [{guest_name}] Selecting dropdown subject...")
+                container = page.locator('div[data-params*="117977297"]')
+                if await container.count() > 0:
+                    listbox = container.locator('div[role="listbox"]').first
+                    await listbox.click(force=True)
+                    await asyncio.sleep(0.15)
+                    options = page.locator('div.exportSelectPopup div[role="option"], div.OA06Te div[role="option"], div[role="option"]')
+                    target_option = options.filter(has_text="Khách đến thăm")
+                    if await target_option.count() > 0:
+                        await target_option.first.click(force=True)
+                    else:
+                        await options.nth(1).click(force=True)
+                    await asyncio.sleep(0.1)
+                
+                # 4. Dates: Ngày đến, Ngày ra
+                log_step(f"4. [{guest_name}] Filling check-in/out dates...")
+                date_fields = {
+                    "Ngày đến": "1707290555",
+                    "Ngày ra": "1028902383"
+                }
+                for label, entry_id in date_fields.items():
+                    val = row_data[label]
+                    container = page.locator(f'div[data-params*="{entry_id}"]')
+                    if await container.count() > 0:
+                        await js_fill(container.locator('input[type="date"]'), val)
+                    
+                # 5. Time: Thời gian vào
+                log_step(f"5. [{guest_name}] Filling check-in time...")
+                time_val = row_data["Thời gian vào"]
+                container = page.locator('div[data-params*="1773051864"]')
+                if await container.count() > 0:
+                    native_time = container.locator('input[type="time"]')
+                    if await native_time.count() > 0:
+                        await js_fill(native_time, time_val)
+                    else:
+                        time_parts = time_val.split(':')
+                        if len(time_parts) == 2:
+                            hour, minute = time_parts[0], time_parts[1]
+                            await js_fill(container.locator('input').nth(0), hour)
+                            await js_fill(container.locator('input').nth(1), minute)
+                        
+                # 6. Agreement checkbox (Verified check state)
+                log_step(f"6. [{guest_name}] Checking compliance checkbox...")
+                container = page.locator('div[data-params*="1651751105"]')
+                if await container.count() > 0:
+                    checkbox = container.locator('div[role="checkbox"], div[role="radio"]').first
+                    is_checked = await checkbox.get_attribute("aria-checked")
+                    if is_checked != "true":
+                        await checkbox.click(force=True)
+                        await asyncio.sleep(0.08)
+                        is_checked = await checkbox.get_attribute("aria-checked")
+                        if is_checked != "true":
+                            await checkbox.evaluate("el => el.click()")
+                
+                # 7. Settle and take first screenshot
+                log_step(f"7. [{guest_name}] Capturing filled form screenshot...")
+                passport_container = page.locator('div[data-params*="1388064463"]')
+                if await passport_container.count() > 0:
+                    await passport_container.first.evaluate("el => el.scrollIntoView({ behavior: 'instant', block: 'end' })")
+                await asyncio.sleep(0.2)
+
+                filled_bytes = await page.screenshot(type="jpeg", quality=35)
+                screenshot_filled_b64 = base64.b64encode(filled_bytes).decode('utf-8')
+                
+                # Click submit
+                log_step(f"8. [{guest_name}] Clicking Submit button...")
+                submit_btn = page.locator('div[role="button"].Y5sE8d').first
+                await submit_btn.click()
+                
+                # Wait for confirmation page
+                log_step(f"9. [{guest_name}] Waiting for confirmation page element...")
+                try:
+                    await page.locator('.vHW8K, a[href*="viewform"]').first.wait_for(state="visible", timeout=5000)
+                except Exception:
+                    err_count = await page.locator('div[role="alert"], .iv77ob').count()
+                    if err_count > 0:
+                        raise Exception("Sai định dạng Mã Căn Hộ hoặc thông tin bị từ chối")
+                    else:
+                        raise Exception("Hết thời gian chờ trang xác nhận")
+                await asyncio.sleep(0.1)
+                
+                # Take submitted screenshot
+                log_step(f"10. [{guest_name}] Capturing confirmation screenshot...")
+                submitted_bytes = await page.screenshot(type="jpeg", quality=35)
+                screenshot_submitted_b64 = base64.b64encode(submitted_bytes).decode('utf-8')
+                
+                log_step(f"11. [{guest_name}] Hoàn tất thành công!")
+                print(f"Successfully submitted and captured screenshots for {guest_name}!")
+                
+                img_filled_id = cache_image(screenshot_filled_b64)
+                img_submitted_id = cache_image(screenshot_submitted_b64)
+                
+                return {
+                    "success": True,
+                    "guestName": guest_name,
+                    "screenshot_filled": f"/api/image/{img_filled_id}" if img_filled_id else "",
+                    "screenshot_submitted": f"/api/image/{img_submitted_id}" if img_submitted_id else ""
+                }
+                
+        except Exception as e:
+            last_err = e
+            log_step(f"⚠️ [{guest_name}] Lỗi lần {attempt}/{max_retries}: {str(e)}")
+            if attempt < max_retries:
+                await asyncio.sleep(0.8)
+        finally:
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+            if context:
+                try:
+                    await context.close()
+                except Exception:
+                    pass
+            if browser:
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
+                    
+    return {
+        "success": False,
+        "error": f"Lỗi sau {max_retries} lần thử: {str(last_err)}",
+        "screenshot_filled": "",
+        "screenshot_submitted": ""
+    }
+
 
 @app.get("/api/image/{img_id}")
 async def serve_cached_image(img_id: str):
@@ -473,20 +622,24 @@ async def serve_cached_image(img_id: str):
         }
     )
 
+submit_semaphore = None
+
 @app.post("/api/submit")
 async def submit_to_google_form(submit_request: SubmitRequest, request: Request):
     if not is_authenticated(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    global submit_lock
-    if submit_lock is None:
-        submit_lock = asyncio.Lock()
-    async with submit_lock:
+    global submit_semaphore
+    if submit_semaphore is None:
+        submit_semaphore = asyncio.Semaphore(6)
+    async with submit_semaphore:
         result = await fill_form_playwright(submit_request)
         return result
 
+
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8888))
+    port = int(os.environ.get("PORT", 1111))
     print(f"Khởi chạy Server tại cổng {port}...")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
 

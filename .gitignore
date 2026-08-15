@@ -5,8 +5,25 @@ local_screenshots/
 tunnel_url.txt
 *.log
 post_response.html
-.git/
 .vscode/
 .sessions.json
+.pro_sessions.json
 scratch/
 *.png
+*.jpg
+!sample_*.jpg
+
+# cccd_reader ignore patterns
+cccd_reader/passport_augmented/
+cccd_reader/passport_preview/
+cccd_reader/passport_web/
+cccd_reader/raw_data/
+cccd_reader/data_augmented/
+cccd_reader/crops/
+cccd_reader/crops_new/
+cccd_reader/ai_trainer/dataset/
+cccd_reader/*.jpg
+cccd_reader/*.png
+cccd_reader/*.html
+!cccd_reader/templates/index.html
+

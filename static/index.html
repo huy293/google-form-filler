@@ -2,19 +2,22 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RIVERGATE RESIDENCE - Đăng Ký Sảnh</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RIVERGATE RESIDENCE - Đăng Ký Sảnh & AI OCR Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --primary: #6c5ce7;
             --primary-light: rgba(108, 92, 231, 0.15);
             --primary-glow: rgba(108, 92, 231, 0.4);
+            --accent-gold: #f59e0b;
+            --accent-gold-light: rgba(245, 158, 11, 0.15);
+            --accent-gold-glow: rgba(245, 158, 11, 0.35);
             --bg-dark: #090714;
-            --card-bg: rgba(20, 16, 38, 0.6);
+            --card-bg: rgba(20, 16, 38, 0.7);
             --card-border: rgba(255, 255, 255, 0.08);
             --text-light: #f3f0ff;
             --text-muted: #a29bfe;
@@ -36,7 +39,7 @@
             background: radial-gradient(circle at 50% 0%, #1e1545 0%, var(--bg-dark) 70%);
             color: var(--text-light);
             min-height: 100vh;
-            padding: 20px 10px;
+            padding: 20px 12px;
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -44,23 +47,23 @@
 
         .container {
             width: 100%;
-            max-width: 500px;
+            max-width: 560px;
             margin: 0 auto;
         }
 
         header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             padding-top: 10px;
         }
 
         header h1 {
-            font-size: 26px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 800;
             letter-spacing: 2px;
             color: #fff;
             text-shadow: 0 0 15px var(--primary-glow);
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         header p {
@@ -69,10 +72,57 @@
             letter-spacing: 0.5px;
         }
 
+        /* Mode Selector Tabs */
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+            background: rgba(12, 9, 26, 0.8);
+            padding: 6px;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+        }
+
+        .mode-tab {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .mode-tab.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .mode-tab.pro-tab.active {
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            box-shadow: 0 4px 15px var(--accent-gold-glow);
+        }
+
+        .tab-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            font-weight: 800;
+        }
+
         .card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 20px;
+            border-radius: 22px;
             padding: 22px;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
@@ -87,7 +137,7 @@
         .form-group label {
             display: block;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-muted);
@@ -99,7 +149,7 @@
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--card-border);
             border-radius: 12px;
-            padding: 14px 16px;
+            padding: 13px 15px;
             color: #fff;
             font-size: 14px;
             transition: all 0.25s ease;
@@ -109,17 +159,12 @@
         .form-control:focus {
             border-color: var(--primary);
             background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        /* Red glow for mandatory empty inputs */
-        .form-control:required:invalid {
-            border-color: rgba(255, 118, 117, 0.4);
+            box-shadow: 0 0 12px var(--primary-glow);
         }
 
         .guest-section-title {
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -136,7 +181,7 @@
             margin-bottom: 16px;
         }
 
-        /* Styled Guest Row */
+        /* Standard Guest Row */
         .guest-row {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -160,7 +205,7 @@
 
         .guest-number {
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
             color: #fff;
         }
 
@@ -169,7 +214,7 @@
             border: none;
             color: var(--error);
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             padding: 2px 6px;
             transition: opacity 0.2s;
@@ -185,7 +230,6 @@
             gap: 12px;
         }
 
-        /* Styled select */
         select.form-control {
             appearance: none;
             -webkit-appearance: none;
@@ -196,7 +240,6 @@
             padding-right: 30px;
         }
 
-        /* Button to add new guest row */
         .btn-add-guest {
             width: 100%;
             background: rgba(255, 255, 255, 0.02);
@@ -205,7 +248,7 @@
             padding: 12px;
             color: var(--text-muted);
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
@@ -221,7 +264,6 @@
             color: #fff;
         }
 
-        /* Submit action button */
         .btn-submit {
             width: 100%;
             background: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);
@@ -230,7 +272,7 @@
             padding: 16px;
             color: white;
             font-size: 15px;
-            font-weight: 700;
+            font-weight: 800;
             cursor: pointer;
             box-shadow: 0 5px 20px var(--primary-glow);
             transition: all 0.2s ease;
@@ -242,12 +284,254 @@
             box-shadow: 0 8px 25px var(--primary);
         }
 
+        .btn-submit.btn-pro-submit {
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            box-shadow: 0 5px 20px var(--accent-gold-glow);
+        }
+
         .btn-submit:disabled {
             background: rgba(255, 255, 255, 0.05);
             color: rgba(255, 255, 255, 0.3);
             box-shadow: none;
             cursor: not-allowed;
             transform: none;
+        }
+
+        /* PRO Password Gate Card */
+        .pro-gate-card {
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .pro-shield-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            background: var(--accent-gold-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-gold);
+            font-size: 28px;
+            box-shadow: 0 0 20px var(--accent-gold-glow);
+        }
+
+        .pro-gate-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .pro-gate-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .pass-input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 360px;
+            margin: 0 auto 15px;
+        }
+
+        .btn-unlock-pro {
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 13px 20px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--accent-gold-glow);
+            white-space: nowrap;
+        }
+
+        /* PRO Master Upload Box (1 Ô Duy Nhất Chọn Nhiều Ảnh) */
+        .pro-master-upload-zone {
+            border: 2px dashed rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.04);
+            border-radius: 16px;
+            padding: 28px 18px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .pro-master-upload-zone:hover, .pro-master-upload-zone.dragover {
+            border-color: var(--accent-gold);
+            background: rgba(245, 158, 11, 0.09);
+            box-shadow: 0 0 25px var(--accent-gold-glow);
+        }
+
+        .upload-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .upload-text {
+            font-size: 15px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* PRO Guest Extracted Cards */
+        .pro-guest-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 16px;
+            position: relative;
+            animation: slideIn 0.25s ease;
+        }
+
+        .doc-badge {
+            display: inline-block;
+            background: var(--accent-gold-light);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: var(--accent-gold);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .ocr-field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .ocr-input-wrapper {
+            position: relative;
+        }
+
+        .ocr-input-wrapper label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .crop-proof-badge {
+            background: rgba(0, 184, 148, 0.15);
+            color: var(--success);
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        /* Document Preview Card */
+        .doc-preview-wrapper {
+            width: 100%;
+            margin-bottom: 14px;
+        }
+
+        .doc-preview-card {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            background: #111418;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .doc-preview-card:hover {
+            transform: scale(1.01);
+            box-shadow: 0 0 15px var(--accent-gold-glow);
+            border-color: var(--accent-gold);
+        }
+
+        .doc-preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .doc-preview-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 6px 12px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.88) 0%, transparent 100%);
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .field-with-crop {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+        }
+
+        .crop-thumb-box {
+            width: 58px;
+            min-width: 58px;
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            background: #0f141c;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .crop-thumb-box:hover {
+            transform: scale(1.06);
+            border-color: var(--accent-gold);
+        }
+
+        .crop-thumb-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .crop-preview-thumb {
+            width: 100%;
+            height: 38px;
+            object-fit: contain;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 184, 148, 0.3);
+            border-radius: 6px;
+            margin-top: 4px;
+            display: none;
         }
 
         /* Progress list */
@@ -273,48 +557,66 @@
             text-transform: uppercase;
         }
 
-        .status-pending {
-            background: rgba(255, 255, 255, 0.08);
-            color: #fff;
+        .status-pending { background: rgba(255, 255, 255, 0.08); color: #fff; }
+        .status-running { background: var(--primary-light); color: var(--text-muted); animation: blink 1.2s infinite; }
+        .status-success { background: var(--success-light); color: var(--success); }
+        .status-error { background: var(--error-light); color: var(--error); }
+
+        @keyframes blink { 50% { opacity: 0.6; } }
+
+        /* Console Log Box */
+        .log-display-box {
+            margin-top: 20px;
+            background: #121216;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
         }
 
-        .status-running {
-            background: var(--primary-light);
-            color: var(--text-muted);
-            animation: blink 1.2s infinite;
+        .log-header {
+            background: #1c1c22;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .status-success {
-            background: var(--success-light);
-            color: var(--success);
+        .log-dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+        .log-dot.red { background: #ff5f56; }
+        .log-dot.yellow { background: #ffbd2e; }
+        .log-dot.green { background: #27c93f; }
+        .log-title { margin-left: 8px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+
+        .log-console {
+            margin: 0;
+            padding: 12px;
+            max-height: 160px;
+            overflow-y: auto;
+            color: #50fa7b;
+            background: #121216;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            scrollbar-width: thin;
         }
 
-        .status-error {
-            background: var(--error-light);
-            color: var(--error);
-        }
-
-        @keyframes blink {
-            50% { opacity: 0.6; }
+        /* Results & Lightbox */
+        .results-section {
+            display: none;
+            margin-top: 25px;
         }
 
         .results-header-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             border-left: 3px solid var(--primary);
             padding-left: 10px;
         }
 
-        .results-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 0;
-            border-left: none;
-            padding-left: 0;
-        }
+        .results-title { font-size: 15px; font-weight: 700; color: #fff; }
 
         .btn-download-all {
             background: linear-gradient(90deg, var(--success) 0%, #00cec9 100%);
@@ -326,14 +628,6 @@
             font-weight: 700;
             cursor: pointer;
             box-shadow: 0 4px 15px var(--success-light);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-        }
-
-        .btn-download-all:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px var(--success);
         }
 
         .guest-result-box {
@@ -341,12 +635,12 @@
             border: 1px solid var(--card-border);
             border-radius: 18px;
             padding: 16px;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
 
         .guest-result-header {
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 12px;
             color: #fff;
             display: flex;
@@ -373,17 +667,17 @@
             color: var(--text-muted);
             margin-bottom: 6px;
             text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+            font-weight: 700;
         }
 
         .screenshot-img-wrapper {
             position: relative;
             width: 100%;
-            height: 220px;
+            height: 200px;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
             background: #000;
+            cursor: pointer;
         }
 
         .screenshot-img {
@@ -392,7 +686,6 @@
             object-fit: cover;
             object-position: top center;
             display: block;
-            cursor: pointer;
             transition: transform 0.3s ease;
         }
 
@@ -400,8 +693,44 @@
             transform: scale(1.04);
         }
 
-        /* Modal for zooming images */
-        /* Fullscreen Lightbox Carousel Modal */
+        .zoom-badge {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            background: rgba(18, 14, 38, 0.85);
+            backdrop-filter: blur(4px);
+            color: #fff;
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-download-single {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 8px;
+            padding: 7px 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-light);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .btn-download-single:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        /* Lightbox Modal */
         .modal {
             display: none;
             position: fixed;
@@ -412,19 +741,14 @@
             height: 100%;
             background-color: rgba(5, 4, 12, 0.95);
             backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
             justify-content: center;
             align-items: center;
             opacity: 0;
             transition: opacity 0.25s ease;
-            box-sizing: border-box;
             padding: 10px;
         }
 
-        .modal.show {
-            display: flex;
-            opacity: 1;
-        }
+        .modal.show { display: flex; opacity: 1; }
 
         .lightbox-container {
             display: flex;
@@ -432,76 +756,31 @@
             width: 100%;
             max-width: 900px;
             height: 94vh;
-            max-height: 94vh;
             background: #110e24;
             border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px var(--primary-glow);
-            transform: scale(0.95);
-            transition: transform 0.25s ease;
-        }
-
-        .modal.show .lightbox-container {
-            transform: scale(1);
         }
 
         .lightbox-topbar {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: 14px 20px;
+            align-items: center;
+            padding: 12px 18px;
             background: rgba(255, 255, 255, 0.03);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .lightbox-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            overflow: hidden;
-        }
-
-        .lightbox-caption {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-light);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .lightbox-counter {
-            font-size: 12px;
-            font-weight: 500;
-            padding: 3px 10px;
-            background: var(--primary-light);
-            color: #a29bfe;
-            border-radius: 12px;
-            border: 1px solid var(--primary-glow);
-            white-space: nowrap;
-        }
+        .lightbox-caption { font-size: 14px; font-weight: 700; color: #fff; }
+        .lightbox-counter { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
 
         .lightbox-close {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: transparent;
+            border: none;
             color: #fff;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+            font-size: 24px;
             cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-
-        .lightbox-close:hover {
-            background: var(--error);
-            color: #fff;
-            border-color: var(--error);
         }
 
         .lightbox-stage {
@@ -510,37 +789,21 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
             background: #080611;
-            user-select: none;
-            touch-action: pan-y;
-        }
-
-        .lightbox-img-wrapper {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-            box-sizing: border-box;
         }
 
         .lightbox-img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            border-radius: 8px;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
-            transition: opacity 0.2s ease, transform 0.2s ease;
         }
 
         .lightbox-nav-btn {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            width: 46px;
-            height: 46px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: rgba(18, 14, 38, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -550,267 +813,142 @@
             justify-content: center;
             cursor: pointer;
             z-index: 10;
-            transition: all 0.2s;
-            backdrop-filter: blur(4px);
         }
 
-        .lightbox-nav-btn:hover {
-            background: var(--primary);
-            border-color: var(--primary);
-            box-shadow: 0 0 15px var(--primary-glow);
-            transform: translateY(-50%) scale(1.1);
-        }
-
-        .lightbox-nav-btn.prev {
-            left: 14px;
-        }
-
-        .lightbox-nav-btn.next {
-            right: 14px;
-        }
+        .lightbox-nav-btn.prev { left: 12px; }
+        .lightbox-nav-btn.next { right: 12px; }
 
         .lightbox-bottombar {
-            padding: 12px 20px;
+            padding: 12px 18px;
             background: rgba(255, 255, 255, 0.03);
             border-top: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 15px;
-            flex-wrap: wrap;
         }
 
         .lightbox-action-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 9px 20px;
+            padding: 8px 18px;
             background: var(--primary);
             border: none;
             border-radius: 8px;
             color: #fff;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 14px var(--primary-glow);
-            font-family: inherit;
         }
 
-        .lightbox-action-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px var(--primary-glow);
-            background: #7c6df8;
-        }
-
-        .lightbox-hint {
-            font-size: 12px;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-        }
-
-        .screenshot-img-wrapper {
-            position: relative;
-            cursor: pointer;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .zoom-badge {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: rgba(18, 14, 38, 0.85);
-            backdrop-filter: blur(4px);
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 500;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            pointer-events: none;
-            transition: all 0.2s;
-        }
-
-        .screenshot-img-wrapper:hover .zoom-badge {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-
-        @media (max-width: 600px) {
-            .lightbox-container {
-                height: 98vh;
-                max-height: 98vh;
-                border-radius: 12px;
-            }
-            .lightbox-topbar {
-                padding: 10px 14px;
-            }
-            .lightbox-caption {
-                font-size: 13px;
-            }
-            .lightbox-nav-btn {
-                width: 38px;
-                height: 38px;
-            }
-            .lightbox-nav-btn.prev { left: 8px; }
-            .lightbox-nav-btn.next { right: 8px; }
-            .lightbox-bottombar {
-                padding: 10px 14px;
-                flex-direction: column;
-                gap: 8px;
-            }
-            .lightbox-action-btn {
-                width: 100%;
-            }
-            .lightbox-hint {
-                font-size: 11px;
-            }
-        }
-
-        /* Live Console Log Styling */
-        .log-display-box {
-            margin-top: 20px;
-            background: #121216;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .log-header {
-            background: #1c1c22;
-            padding: 8px 12px;
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .log-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-
-        .log-dot.red { background: #ff5f56; }
-        .log-dot.yellow { background: #ffbd2e; }
-        .log-dot.green { background: #27c93f; }
-
-        .log-title {
-            margin-left: 8px;
-            font-size: 11px;
-            color: var(--text-muted);
-            font-family: var(--font-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 500;
-        }
-
-        .log-console {
-            margin: 0;
-            padding: 14px;
-            max-height: 180px;
-            overflow-y: auto;
-            color: #50fa7b;
-            background: #121216;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            text-align: left;
-            scrollbar-width: thin;
-        }
-
-        /* Individual Screenshot Download Button */
-        .btn-download-single {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 10px;
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-light);
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: var(--font-primary);
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .btn-download-single:hover {
-            background: var(--primary-light);
-            border-color: var(--primary);
-            color: #fff;
-            box-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        .btn-download-single svg {
-            margin-right: 6px;
-        }
+        .hidden-file-input { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>RIVERGATE RESIDENCE</h1>
-            <p>Đăng ký sảnh tự động & xuất ảnh minh chứng</p>
+            <p>Hệ Thống Tự Động Khai Báo Lưu Trú & OCR AI</p>
         </header>
 
-        <main class="card">
-            <form id="submissionForm" onsubmit="handleFormSubmit(event)">
-                <!-- Global Apartment Code -->
+        <!-- Mode Selector Tabs -->
+        <div class="mode-tabs">
+            <button type="button" class="mode-tab active" id="tabStandard" onclick="switchMode('standard')">
+                <span>⚡ Điền Nhanh</span>
+                <span class="tab-badge">Cơ bản</span>
+            </button>
+            <button type="button" class="mode-tab pro-tab" id="tabPro" onclick="switchMode('pro')">
+                <span>👑 Quét AI Pro</span>
+                <span class="tab-badge" id="proTabBadge">Pass C2</span>
+            </button>
+        </div>
+
+        <!-- 1. STANDARD QUICK FILL MODE -->
+        <main class="card" id="standardModeCard">
+            <form id="standardForm" onsubmit="handleStandardSubmit(event)">
                 <div class="form-group">
                     <label>Mã Căn Hộ (Unit Code) *</label>
-                    <input type="text" id="unitCode" class="form-control" required placeholder="Ví dụ: A-12.34 hoặc A12.99" autocomplete="off">
+                    <input type="text" id="stdUnitCode" class="form-control" required placeholder="Ví dụ: A-12.34 hoặc A12.99" autocomplete="off">
                 </div>
 
                 <div class="guest-section-title">
                     <span>Danh Sách Khách Đăng Ký</span>
                 </div>
 
-                <!-- Guest list rows container -->
-                <div class="guest-list-container" id="guestList">
+                <div class="guest-list-container" id="stdGuestList">
                     <!-- Dynamic rows inserted here -->
                 </div>
 
-                <!-- Add Guest Row Button -->
-                <button type="button" class="btn-add-guest" onclick="addGuestRow()">
+                <button type="button" class="btn-add-guest" onclick="addStandardGuestRow()">
                     <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                     </svg>
                     Thêm Khách Hàng (+)
                 </button>
 
-                <!-- Submit Button -->
-                <button type="submit" id="btnSubmit" class="btn-submit">Bắt Đầu Đăng Ký & Chụp Ảnh</button>
+                <button type="submit" id="btnStdSubmit" class="btn-submit">🚀 Bắt Đầu Đăng Ký & Gửi Form</button>
             </form>
-
-            <!-- Status Tracker -->
-            <div class="status-tracker" id="statusTracker">
-                <div class="guest-section-title" style="margin-top: 20px;">
-                    <span>Tiến Trình Đăng Ký</span>
-                </div>
-                <div id="statusList"></div>
-                
-                <!-- Live Console Log Display -->
-                <div class="log-display-box" id="logDisplayBox" style="display: none;">
-                    <div class="log-header">
-                        <div class="log-dot red"></div>
-                        <div class="log-dot yellow"></div>
-                        <div class="log-dot green"></div>
-                        <span class="log-title">Live Server Console</span>
-                    </div>
-                    <pre class="log-console" id="logConsole">Khởi động...</pre>
-                </div>
-            </div>
         </main>
+
+        <!-- 2. PRO MODE: PASS LEVEL 2 UNLOCK GATE -->
+        <main class="card pro-gate-card" id="proGateCard" style="display: none;">
+            <div class="pro-shield-icon">🛡️</div>
+            <h2 class="pro-gate-title">Mở Khóa Chức Năng PRO</h2>
+            <p class="pro-gate-desc">Nhập mật khẩu cấp 2 để kích hoạt tính năng AI OCR quét Hộ Chiếu & CCCD siêu chính xác (Lưu vĩnh viễn).</p>
+            
+            <form onsubmit="handleUnlockPro(event)">
+                <div class="pass-input-group">
+                    <input type="password" id="proPassInput" class="form-control" required placeholder="Nhập pass cấp 2..." autocomplete="current-password">
+                    <button type="submit" class="btn-unlock-pro">Mở Khóa</button>
+                </div>
+            </form>
+            <div id="proPassError" style="color: var(--error); font-size: 12px; display: none; font-weight: 700; margin-top: 8px;">Mật khẩu cấp 2 không đúng!</div>
+        </main>
+
+        <!-- 3. PRO MODE: 1 Ô UPLOAD DUY NHẤT CHO NHIỀU KHÁCH -->
+        <main class="card" id="proActiveCard" style="display: none;">
+            <form id="proForm" onsubmit="handleProSubmit(event)">
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="margin-bottom: 0;">Mã Căn Hộ (Unit Code) *</label>
+                        <span class="doc-badge" style="margin-bottom: 0;">👑 AI OCR ACTIVE</span>
+                    </div>
+                    <input type="text" id="proUnitCode" class="form-control" required placeholder="Ví dụ: A-12.34 hoặc A12.99" autocomplete="off">
+                </div>
+
+                <!-- Master Upload Box (1 ô duy nhất tải/chọn nhiều ảnh) -->
+                <div class="pro-master-upload-zone" id="proMasterDropzone" onclick="document.getElementById('proBatchFileInput').click()">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-text">Tải Lên Hoặc Chụp Ảnh Các Giấy Tờ (Hộ Chiếu / CCCD)</div>
+                    <div class="upload-hint">⚡ <b>Chọn cùng lúc 1 hoặc nhiều ảnh</b> — Chọn bao nhiêu ảnh tự động nhận diện bấy nhiêu khách!</div>
+                    <input type="file" id="proBatchFileInput" class="hidden-file-input" accept="image/*" multiple onchange="handleBatchImageUpload(this.files)">
+                </div>
+
+                <div class="guest-section-title" id="proGuestListTitle" style="display: none;">
+                    <span>Danh Sách Khách Đã Nhận Diện (<span id="proGuestCountNum">0</span> khách)</span>
+                </div>
+
+                <!-- Danh sách các thẻ khách tự động sinh ra sau khi chọn ảnh -->
+                <div id="proGuestList"></div>
+
+                <button type="submit" id="btnProSubmit" class="btn-submit btn-pro-submit">🚀 Đăng Ký Tự Động Với Dữ Liệu Thực Tế</button>
+            </form>
+        </main>
+
+        <!-- Status & Live Console Tracker -->
+        <div class="card status-tracker" id="statusTracker">
+            <div class="guest-section-title">
+                <span>Tiến Trình Đăng Ký Google Form</span>
+            </div>
+            <div id="statusList"></div>
+            
+            <div class="log-display-box" id="logDisplayBox">
+                <div class="log-header">
+                    <div class="log-dot red"></div>
+                    <div class="log-dot yellow"></div>
+                    <div class="log-dot green"></div>
+                    <span class="log-title">Live Server Console</span>
+                </div>
+                <pre class="log-console" id="logConsole">Khởi động...</pre>
+            </div>
+        </div>
 
         <!-- Screenshots Results Area -->
         <section class="results-section" id="resultsSection">
@@ -820,7 +958,7 @@
                     <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px; display: inline-block; vertical-align: middle;">
                         <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
                     </svg>
-                    Tải Toàn Bộ Ảnh
+                    Tải Toàn Bộ Ảnh (ZIP)
                 </button>
             </div>
             <div id="resultsContainer"></div>
@@ -830,7 +968,6 @@
     <!-- Lightbox Carousel Modal -->
     <div id="imageModal" class="modal" onclick="closeLightbox(event)">
         <div class="lightbox-container" onclick="event.stopPropagation()">
-            <!-- Top Bar -->
             <div class="lightbox-topbar">
                 <div class="lightbox-info">
                     <span id="lightboxCaption" class="lightbox-caption">Ảnh Minh Chứng</span>
@@ -839,65 +976,150 @@
                 <button type="button" class="lightbox-close" onclick="closeLightbox()" title="Đóng">&times;</button>
             </div>
 
-            <!-- Image Viewport & Navigation -->
             <div class="lightbox-stage" id="lightboxStage">
-                <button type="button" class="lightbox-nav-btn prev" onclick="prevSlide()" title="Ảnh trước (Phím ←)">
+                <button type="button" class="lightbox-nav-btn prev" onclick="prevSlide()" title="Ảnh trước">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
                     </svg>
                 </button>
 
-                <div class="lightbox-img-wrapper">
+                <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:10px;">
                     <img id="modalImg" class="lightbox-img" src="" alt="Ảnh minh chứng">
                 </div>
 
-                <button type="button" class="lightbox-nav-btn next" onclick="nextSlide()" title="Ảnh kế tiếp (Phím →)">
+                <button type="button" class="lightbox-nav-btn next" onclick="nextSlide()" title="Ảnh kế tiếp">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
                     </svg>
                 </button>
             </div>
 
-            <!-- Bottom Actions -->
             <div class="lightbox-bottombar">
                 <button type="button" class="lightbox-action-btn" onclick="saveCurrentSlideImage()">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px; vertical-align: middle;">
-                        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
-                    </svg>
-                    Lưu Ảnh Này Vào Máy
+                    💾 Lưu Ảnh Này Vào Máy
                 </button>
-                <div class="lightbox-hint">💡 Vuốt sang trái/phải trên màn hình để lướt ảnh</div>
+                <div style="font-size: 11px; color: var(--text-muted);">💡 Vuốt ngang để lướt ảnh</div>
             </div>
         </div>
     </div>
 
     <script>
-        let guestCount = 0;
+        let currentMode = 'standard';
+        let isProUnlocked = false;
+        let stdGuestCount = 0;
+        let proGuestCount = 0;
         let allImages = [];
+        let currentSlideIdx = 0;
 
-        // Initialize form with 1 guest row
-        window.addEventListener('load', () => {
-            addGuestRow();
+        window.addEventListener('load', async () => {
+            addStandardGuestRow();
+            setupMasterDropzone();
+            await checkProStatus();
         });
 
-        // Add a new guest input row
-        function addGuestRow() {
-            guestCount++;
-            const container = document.getElementById('guestList');
+        // Check if PRO mode is already unlocked
+        async function checkProStatus() {
+            try {
+                const res = await fetch('/api/pro-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.unlocked || localStorage.getItem('pro_unlocked') === '1') {
+                        setProUnlockedState(true);
+                    }
+                }
+            } catch (e) {
+                if (localStorage.getItem('pro_unlocked') === '1') {
+                    setProUnlockedState(true);
+                }
+            }
+        }
+
+        function setProUnlockedState(unlocked) {
+            isProUnlocked = unlocked;
+            const badge = document.getElementById('proTabBadge');
+            if (unlocked) {
+                badge.textContent = "Đã Mở";
+                badge.style.background = "var(--accent-gold)";
+                badge.style.color = "#000";
+            }
+        }
+
+        // Switch between Standard and PRO mode
+        function switchMode(mode) {
+            currentMode = mode;
+            const tabStd = document.getElementById('tabStandard');
+            const tabPro = document.getElementById('tabPro');
+            const stdCard = document.getElementById('standardModeCard');
+            const gateCard = document.getElementById('proGateCard');
+            const proCard = document.getElementById('proActiveCard');
+
+            if (mode === 'standard') {
+                tabStd.classList.add('active');
+                tabPro.classList.remove('active');
+                stdCard.style.display = 'block';
+                gateCard.style.display = 'none';
+                proCard.style.display = 'none';
+            } else {
+                tabStd.classList.remove('active');
+                tabPro.classList.add('active');
+                stdCard.style.display = 'none';
+                if (isProUnlocked) {
+                    gateCard.style.display = 'none';
+                    proCard.style.display = 'block';
+                } else {
+                    gateCard.style.display = 'block';
+                    proCard.style.display = 'none';
+                }
+            }
+        }
+
+        // Unlock PRO Mode
+        async function handleUnlockPro(e) {
+            e.preventDefault();
+            const pass = document.getElementById('proPassInput').value.trim();
+            const errDiv = document.getElementById('proPassError');
+            errDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/verify-pro-pass', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass })
+                });
+
+                if (res.ok) {
+                    localStorage.setItem('pro_unlocked', '1');
+                    setProUnlockedState(true);
+                    switchMode('pro');
+                } else {
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.textContent = "Lỗi kết nối máy chủ!";
+                errDiv.style.display = 'block';
+            }
+        }
+
+        /* -----------------------------------------------------
+           STANDARD QUICK FILL LOGIC
+        ----------------------------------------------------- */
+        function addStandardGuestRow() {
+            stdGuestCount++;
+            const container = document.getElementById('stdGuestList');
             const row = document.createElement('div');
             row.className = 'guest-row';
-            row.id = `guestRow-${guestCount}`;
+            row.id = `stdGuestRow-${stdGuestCount}`;
             row.innerHTML = `
                 <div class="guest-row-header">
-                    <span class="guest-number">Khách hàng #${guestCount}</span>
-                    <button type="button" class="btn-delete-guest" onclick="deleteGuestRow(${guestCount})">Xóa</button>
+                    <span class="guest-number">Khách hàng #${stdGuestCount}</span>
+                    <button type="button" class="btn-delete-guest" onclick="deleteStandardGuestRow(${stdGuestCount})">Xóa</button>
                 </div>
                 <div class="guest-grid">
                     <div>
-                        <input type="text" class="form-control guest-passport" required placeholder="Hộ chiếu / CCCD" autocomplete="off">
+                        <input type="text" class="form-control std-guest-id" required placeholder="Số Hộ Chiếu / CCCD" autocomplete="off">
                     </div>
                     <div>
-                        <select class="form-control guest-gender">
+                        <select class="form-control std-guest-gender">
                             <option value="female" selected>Nữ (F)</option>
                             <option value="male">Nam (M)</option>
                         </select>
@@ -905,65 +1127,343 @@
                 </div>
             `;
             container.appendChild(row);
-            updateDeleteButtons();
+            updateStandardDeleteButtons();
         }
 
-        // Delete a guest row
-        function deleteGuestRow(id) {
-            const row = document.getElementById(`guestRow-${id}`);
+        function deleteStandardGuestRow(id) {
+            const row = document.getElementById(`stdGuestRow-${id}`);
             if (row) {
                 row.remove();
-                reorderGuests();
-                updateDeleteButtons();
+                reorderStandardGuests();
+                updateStandardDeleteButtons();
             }
         }
 
-        // Re-number guest headers
-        function reorderGuests() {
-            const rows = document.querySelectorAll('.guest-row');
-            guestCount = 0;
-            rows.forEach((row) => {
-                guestCount++;
-                row.id = `guestRow-${guestCount}`;
-                const numberSpan = row.querySelector('.guest-number');
-                numberSpan.textContent = `Khách hàng #${guestCount}`;
-                
-                const deleteBtn = row.querySelector('.btn-delete-guest');
-                deleteBtn.setAttribute('onclick', `deleteGuestRow(${guestCount})`);
+        function reorderStandardGuests() {
+            const rows = document.querySelectorAll('#stdGuestList .guest-row');
+            stdGuestCount = 0;
+            rows.forEach(row => {
+                stdGuestCount++;
+                row.id = `stdGuestRow-${stdGuestCount}`;
+                row.querySelector('.guest-number').textContent = `Khách hàng #${stdGuestCount}`;
+                row.querySelector('.btn-delete-guest').setAttribute('onclick', `deleteStandardGuestRow(${stdGuestCount})`);
             });
         }
 
-        // Hide delete buttons if only 1 row remains
-        function updateDeleteButtons() {
-            const deleteButtons = document.querySelectorAll('.btn-delete-guest');
-            if (deleteButtons.length <= 1) {
-                deleteButtons.forEach(btn => btn.style.display = 'none');
-            } else {
-                deleteButtons.forEach(btn => btn.style.display = 'block');
-            }
+        function updateStandardDeleteButtons() {
+            const buttons = document.querySelectorAll('#stdGuestList .btn-delete-guest');
+            buttons.forEach(btn => btn.style.display = (buttons.length <= 1) ? 'none' : 'block');
         }
 
-        // Form submit handler
-        async function handleFormSubmit(e) {
+        async function handleStandardSubmit(e) {
             e.preventDefault();
-
-            const unitCode = document.getElementById('unitCode').value.trim();
-            const rows = document.querySelectorAll('.guest-row');
-            
+            const unitCode = document.getElementById('stdUnitCode').value.trim();
+            const rows = document.querySelectorAll('#stdGuestList .guest-row');
             if (rows.length === 0) return;
 
-            const guestsData = [];
+            const guests = [];
             rows.forEach(row => {
-                const guestId = row.querySelector('.guest-passport').value.trim();
-                const gender = row.querySelector('.guest-gender').value;
-                guestsData.push({ guestId, gender });
+                const guestId = row.querySelector('.std-guest-id').value.trim();
+                const gender = row.querySelector('.std-guest-gender').value;
+                guests.push({ guestId, gender });
             });
 
-            // Reset displays and images array
+            await executeRegistration(unitCode, guests, document.getElementById('btnStdSubmit'));
+        }
+
+        /* -----------------------------------------------------
+           PRO MASTER UPLOAD (1 Ô DUY NHẤT CHỌN NHIỀU ẢNH)
+        ----------------------------------------------------- */
+        function setupMasterDropzone() {
+            const zone = document.getElementById('proMasterDropzone');
+            if (!zone) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(name => {
+                zone.addEventListener(name, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+
+            zone.addEventListener('dragover', () => zone.classList.add('dragover'));
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', (e) => {
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleBatchImageUpload(e.dataTransfer.files);
+                }
+            });
+        }
+
+        function handleBatchImageUpload(files) {
+            if (!files || files.length === 0) return;
+            const fileList = Array.from(files);
+
+            document.getElementById('proGuestListTitle').style.display = 'flex';
+
+            fileList.forEach(file => {
+                proGuestCount++;
+                const idx = proGuestCount;
+                createProGuestCard(idx, file);
+                processSingleProFile(idx, file);
+            });
+
+            updateProGuestCounter();
+            document.getElementById('proBatchFileInput').value = '';
+        }
+
+        function createProGuestCard(idx, file) {
+            const container = document.getElementById('proGuestList');
+            const card = document.createElement('div');
+            card.className = 'pro-guest-card';
+            card.id = `proGuestCard-${idx}`;
+
+            const localPreviewUrl = URL.createObjectURL(file);
+            proDocImages[idx] = { data: localPreviewUrl, title: `Khách #${idx} - Ảnh Giấy Tờ Gốc` };
+
+            card.innerHTML = `
+                <div class="guest-row-header">
+                    <span class="guest-number" style="color: var(--accent-gold); font-size: 14px; font-weight: 800;">Khách #${idx}</span>
+                    <button type="button" class="btn-delete-guest" onclick="deleteProGuestCard(${idx})">Xóa</button>
+                </div>
+
+                <div id="ocrStatus-${idx}" style="color: var(--accent-gold); font-size: 13px; font-weight:700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>⏳ AI đang nhận diện & trích xuất dữ liệu...</span>
+                </div>
+
+                <!-- Ảnh Giấy Tờ Đã Tải Lên (Tự động Crop & Căn chỉnh chuẩn) -->
+                <div class="doc-preview-wrapper" id="docPreviewWrapper-${idx}" style="display:block;">
+                    <div class="doc-preview-card" onclick="openDocLightbox(${idx})">
+                        <img id="docPreviewImg-${idx}" class="doc-preview-img" src="${localPreviewUrl}" alt="Ảnh giấy tờ">
+                        <div class="doc-preview-overlay">
+                            <span>🔍 Bấm để phóng to xem chi tiết</span>
+                            <span class="doc-badge" id="docBadge-${idx}" style="margin-bottom: 0; font-size: 10px;">Đang quét...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ocr-field-row">
+                    <div class="ocr-input-wrapper">
+                        <label>Số Hộ Chiếu / CCCD</label>
+                        <div class="field-with-crop">
+                            <div class="crop-thumb-box" id="cropBox-id-${idx}" style="display:none;" onclick="openDocCrop(${idx}, 'id')" title="Bấm xem vùng số giấy tờ">
+                                <img id="cropImg-id-${idx}" src="" alt="crop">
+                            </div>
+                            <input type="text" class="form-control pro-id" id="proId-${idx}" required placeholder="Số giấy tờ">
+                        </div>
+                    </div>
+                    <div class="ocr-input-wrapper">
+                        <label>Họ và Tên</label>
+                        <div class="field-with-crop">
+                            <div class="crop-thumb-box" id="cropBox-name-${idx}" style="display:none;" onclick="openDocCrop(${idx}, 'name')" title="Bấm xem vùng họ tên">
+                                <img id="cropImg-name-${idx}" src="" alt="crop">
+                            </div>
+                            <input type="text" class="form-control pro-name" id="proName-${idx}" required placeholder="Họ và tên">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ocr-field-row">
+                    <div class="ocr-input-wrapper">
+                        <label>Giới Tính</label>
+                        <select class="form-control pro-gender" id="proGender-${idx}">
+                            <option value="male">Nam (M)</option>
+                            <option value="female">Nữ (F)</option>
+                        </select>
+                    </div>
+                    <div class="ocr-input-wrapper">
+                        <label>Ngày Sinh (DD/MM/YYYY)</label>
+                        <div class="field-with-crop">
+                            <div class="crop-thumb-box" id="cropBox-dob-${idx}" style="display:none;" onclick="openDocCrop(${idx}, 'dob')" title="Bấm xem vùng ngày sinh">
+                                <img id="cropImg-dob-${idx}" src="" alt="crop">
+                            </div>
+                            <input type="text" class="form-control pro-dob" id="proDob-${idx}" placeholder="DD/MM/YYYY">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ocr-field-row">
+                    <div class="ocr-input-wrapper">
+                        <label>Quốc Tịch</label>
+                        <input type="text" class="form-control pro-nation" id="proNation-${idx}" placeholder="Quốc tịch">
+                    </div>
+                    <div class="ocr-input-wrapper">
+                        <label>Nơi Sinh / Quê Quán</label>
+                        <div class="field-with-crop">
+                            <div class="crop-thumb-box" id="cropBox-pob-${idx}" style="display:none;" onclick="openDocCrop(${idx}, 'pob')" title="Bấm xem vùng nơi sinh">
+                                <img id="cropImg-pob-${idx}" src="" alt="crop">
+                            </div>
+                            <input type="text" class="form-control pro-pob" id="proPob-${idx}" placeholder="Nơi sinh">
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        }
+
+        let proDocImages = {};
+        let proDocCrops = {};
+
+        async function processSingleProFile(idx, file) {
+            const statusDiv = document.getElementById(`ocrStatus-${idx}`);
+            const docBadge = document.getElementById(`docBadge-${idx}`);
+            const docWrapper = document.getElementById(`docPreviewWrapper-${idx}`);
+            const docImg = document.getElementById(`docPreviewImg-${idx}`);
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const res = await fetch('/api/extract', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    statusDiv.style.display = 'none';
+                    docBadge.textContent = data.layout_label || "🛂 Giấy Tờ Hợp Lệ";
+
+                    // Cập nhật ảnh đã được AI căn chỉnh & xoay thẳng & crop chuẩn viền thẻ
+                    if (data.doc_image) {
+                        docImg.src = data.doc_image;
+                        proDocImages[idx] = { data: data.doc_image, title: `Khách #${idx} - Giấy Tờ Đã Chuẩn Hoá` };
+                    }
+
+                    const f = data.fields || {};
+                    const cr = data.crops || {};
+                    proDocCrops[idx] = cr;
+
+                    const num = f.passport_number || f.id_number || f.cmnd_number || "";
+                    document.getElementById(`proId-${idx}`).value = num;
+                    const idCrop = cr.passport_number || cr.id_number || cr.cccd_number;
+                    if (idCrop) {
+                        const box = document.getElementById(`cropBox-id-${idx}`);
+                        const img = document.getElementById(`cropImg-id-${idx}`);
+                        if (box && img) { img.src = 'data:image/jpeg;base64,' + idCrop; box.style.display = 'flex'; }
+                    }
+
+                    const name = f.full_name || `${f.surname || ''} ${f.given_names || ''}`.trim();
+                    document.getElementById(`proName-${idx}`).value = name;
+                    const nameCrop = cr.full_name || cr.surname || cr.given_names;
+                    if (nameCrop) {
+                        const box = document.getElementById(`cropBox-name-${idx}`);
+                        const img = document.getElementById(`cropImg-name-${idx}`);
+                        if (box && img) { img.src = 'data:image/jpeg;base64,' + nameCrop; box.style.display = 'flex'; }
+                    }
+
+                    const gender = (f.gender && f.gender.toLowerCase().includes('nữ')) ? 'female' : 'male';
+                    document.getElementById(`proGender-${idx}`).value = gender;
+
+                    document.getElementById(`proDob-${idx}`).value = f.birth_date || "";
+                    if (cr.birth_date) {
+                        const box = document.getElementById(`cropBox-dob-${idx}`);
+                        const img = document.getElementById(`cropImg-dob-${idx}`);
+                        if (box && img) { img.src = 'data:image/jpeg;base64,' + cr.birth_date; box.style.display = 'flex'; }
+                    }
+
+                    document.getElementById(`proNation-${idx}`).value = f.nationality || (f.id_number ? "Việt Nam" : "");
+                    document.getElementById(`proPob-${idx}`).value = f.place_of_birth || f.place_of_origin || f.nationality || (f.id_number ? "Việt Nam" : "");
+                    const pobCrop = cr.place_of_birth || cr.hometown || cr.address;
+                    if (pobCrop) {
+                        const box = document.getElementById(`cropBox-pob-${idx}`);
+                        const img = document.getElementById(`cropImg-pob-${idx}`);
+                        if (box && img) { img.src = 'data:image/jpeg;base64,' + pobCrop; box.style.display = 'flex'; }
+                    }
+                } else {
+                    statusDiv.innerHTML = `<span style="color: var(--error);">❌ ${data.detail || 'Lỗi quét ảnh, vui lòng kiểm tra lại!'}</span>`;
+                }
+
+            } catch (err) {
+                statusDiv.innerHTML = `<span style="color: var(--error);">❌ Lỗi kết nối OCR!</span>`;
+            }
+        }
+
+        function openDocLightbox(idx) {
+            let src = (proDocImages[idx] && proDocImages[idx].data) ? proDocImages[idx].data : "";
+            if (!src) {
+                const imgElem = document.getElementById(`docPreviewImg-${idx}`);
+                if (imgElem && imgElem.src) src = imgElem.src;
+            }
+            if (src) {
+                allImages = [{ data: src, filename: `GiayTo_Khach_${idx}.jpg`, title: `Khách #${idx} - Ảnh Giấy Tờ Đã Chuẩn Hoá` }];
+                currentSlideIdx = 0;
+                updateLightboxContent();
+                document.getElementById('imageModal').classList.add('show');
+            }
+        }
+
+        function openDocCrop(idx, fieldKey) {
+            const cr = proDocCrops[idx] || {};
+            let b64 = "";
+            if (fieldKey === 'id') b64 = cr.passport_number || cr.id_number || cr.cccd_number;
+            else if (fieldKey === 'name') b64 = cr.full_name || cr.surname || cr.given_names;
+            else if (fieldKey === 'dob') b64 = cr.birth_date;
+            else if (fieldKey === 'pob') b64 = cr.place_of_birth || cr.hometown || cr.address;
+
+            if (b64) {
+                allImages = [{ data: 'data:image/jpeg;base64,' + b64, filename: `Crop_${fieldKey}_Khach_${idx}.jpg`, title: `Khách #${idx} - Vùng Ảnh Trích Xuất (${fieldKey.toUpperCase()})` }];
+                currentSlideIdx = 0;
+                updateLightboxContent();
+                document.getElementById('imageModal').classList.add('show');
+            }
+        }
+
+
+
+        function deleteProGuestCard(idx) {
+            const card = document.getElementById(`proGuestCard-${idx}`);
+            if (card) {
+                card.remove();
+                updateProGuestCounter();
+            }
+        }
+
+        function updateProGuestCounter() {
+            const cards = document.querySelectorAll('#proGuestList .pro-guest-card');
+            const countNum = document.getElementById('proGuestCountNum');
+            if (countNum) countNum.textContent = cards.length;
+            if (cards.length === 0) {
+                document.getElementById('proGuestListTitle').style.display = 'none';
+            }
+        }
+
+        async function handleProSubmit(e) {
+            e.preventDefault();
+            const unitCode = document.getElementById('proUnitCode').value.trim();
+            const cards = document.querySelectorAll('#proGuestList .pro-guest-card');
+            if (cards.length === 0) {
+                alert("Vui lòng tải lên ít nhất 1 ảnh Hộ Chiếu hoặc CCCD!");
+                return;
+            }
+
+            const guests = [];
+            cards.forEach(card => {
+                const idInput = card.querySelector('.pro-id');
+                if (!idInput || !idInput.value.trim()) return;
+
+                guests.push({
+                    guestId: idInput.value.trim(),
+                    gender: card.querySelector('.pro-gender').value,
+                    fullName: card.querySelector('.pro-name').value.trim(),
+                    birthDate: card.querySelector('.pro-dob').value.trim(),
+                    nationality: card.querySelector('.pro-nation').value.trim(),
+                    address: card.querySelector('.pro-pob').value.trim()
+                });
+            });
+
+            if (guests.length === 0) {
+                alert("Vui lòng kiểm tra lại số Hộ Chiếu/CCCD cho các khách!");
+                return;
+            }
+
+            await executeRegistration(unitCode, guests, document.getElementById('btnProSubmit'));
+        }
+
+        /* -----------------------------------------------------
+           SHARED SUBMISSION EXECUTION ENGINE
+        ----------------------------------------------------- */
+        async function executeRegistration(unitCode, guestsData, submitButton) {
             allImages = [];
-            const btnSubmit = document.getElementById('btnSubmit');
-            btnSubmit.disabled = true;
-            btnSubmit.textContent = "Đang thực hiện đăng ký...";
+            submitButton.disabled = true;
+            submitButton.textContent = "Đang thực hiện đăng ký...";
 
             document.getElementById('statusTracker').style.display = 'block';
             const statusList = document.getElementById('statusList');
@@ -973,25 +1473,21 @@
             resultsContainer.innerHTML = "";
             document.getElementById('resultsSection').style.display = 'none';
 
-            // Show live console box
-            const logDisplayBox = document.getElementById('logDisplayBox');
             const logConsole = document.getElementById('logConsole');
-            logDisplayBox.style.display = 'block';
-            logConsole.textContent = "Đang kết nối tới máy chủ Render...\n";
+            logConsole.textContent = "Khởi động tiến trình gửi Google Form...\n";
 
-            // Create progress indicators
             guestsData.forEach((g, index) => {
                 const item = document.createElement('div');
                 item.className = 'status-item';
                 item.id = `statusItem-${index}`;
                 item.innerHTML = `
-                    <span>Khách #${index + 1} (${g.guestId})</span>
+                    <span>Khách #${index + 1} (${g.fullName || g.guestId})</span>
                     <span class="status-badge status-pending" id="statusBadge-${index}">Đang chờ</span>
                 `;
                 statusList.appendChild(item);
             });
 
-            // Start log polling interval (fetch every 600ms)
+            // Start log polling
             const logInterval = setInterval(async () => {
                 try {
                     const logRes = await fetch('/status');
@@ -999,106 +1495,93 @@
                         const logData = await logRes.json();
                         if (logData.logs && logData.logs.length > 0) {
                             logConsole.textContent = logData.logs.join('\n');
-                            logConsole.scrollTop = logConsole.scrollHeight; // Auto scroll to bottom
+                            logConsole.scrollTop = logConsole.scrollHeight;
                         }
                     }
-                } catch (e) {
-                    console.error("Lỗi khi đọc log từ server:", e);
+                } catch (e) {}
+            }, 500);
+
+            // Chạy đa luồng song song toàn bộ danh sách khách với cơ chế Auto-Retry
+            const registrationTasks = guestsData.map(async (guest, i) => {
+                await submitSingleGuestWithRetry(unitCode, guest, i);
+            });
+
+            await Promise.all(registrationTasks);
+
+            clearInterval(logInterval);
+            submitButton.disabled = false;
+            submitButton.textContent = (currentMode === 'pro') ? "🚀 Đăng Ký Tự Động Với Dữ Liệu Thực Tế" : "🚀 Bắt Đầu Đăng Ký & Gửi Form";
+        }
+
+        async function submitSingleGuestWithRetry(unitCode, guest, i) {
+            const badge = document.getElementById(`statusBadge-${i}`);
+            const maxAttempts = 3;
+            let success = false;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (badge) {
+                    badge.textContent = (attempt === 1) ? "Đang đăng ký..." : `Đang thử lại (${attempt}/${maxAttempts})...`;
+                    badge.className = "status-badge status-running";
                 }
-            }, 600);
 
-            // Generate shared nationality for the whole group (same room = same country)
-            const FOREIGN_NATIONS = ["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp", "Úc", "Canada", "Nhật Bản"];
-            const sharedNation = FOREIGN_NATIONS[Math.floor(Math.random() * FOREIGN_NATIONS.length)];
-
-            // Process sequentially to protect server RAM
-            for (let i = 0; i < guestsData.length; i++) {
-                const badge = document.getElementById(`statusBadge-${i}`);
-                badge.textContent = "Đang đăng ký...";
-                badge.className = "status-badge status-running";
-
-                const guest = guestsData[i];
-                
                 try {
                     const response = await fetch('/api/submit', {
                         method: 'POST',
-                        credentials: 'same-origin',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             unitCode: unitCode,
                             guestId: guest.guestId,
                             gender: guest.gender,
-                            sharedNation: sharedNation
-                        }),
+                            fullName: guest.fullName || "",
+                            birthDate: guest.birthDate || "",
+                            nationality: guest.nationality || "",
+                            address: guest.address || ""
+                        })
                     });
 
                     const result = await response.json();
-
                     if (response.ok && result.success) {
-                        badge.textContent = "Thành công";
-                        badge.className = "status-badge status-success";
-                        
-                        // Add screenshots to results section
-                        appendResultBox(result.guestName, guest.guestId, result.screenshot_filled, result.screenshot_submitted);
-                    } else {
-                        badge.textContent = "Thất bại";
-                        badge.className = "status-badge status-error";
-                        if (result.screenshot_filled) {
-                            appendErrorBox(result.guestName || `Khách ${i+1}`, guest.guestId, result.error || "Gặp lỗi khi điền", result.screenshot_filled);
+                        if (badge) {
+                            badge.textContent = "Thành công";
+                            badge.className = "status-badge status-success";
                         }
+                        appendResultBox(result.guestName, guest.guestId, result.screenshot_filled, result.screenshot_submitted);
+                        success = true;
+                        break;
                     }
                 } catch (err) {
-                    badge.textContent = "Lỗi mạng";
-                    badge.className = "status-badge status-error";
-                    console.error(err);
+                    console.warn(`Lỗi gửi khách #${i+1} lần ${attempt}:`, err);
+                }
+
+                if (attempt < maxAttempts) {
+                    await new Promise(r => setTimeout(r, 1000));
                 }
             }
 
-            // Stop log polling interval
-            clearInterval(logInterval);
-            
-            // Get final logs one last time
-            try {
-                const logRes = await fetch('/status');
-                if (logRes.ok) {
-                    const logData = await logRes.json();
-                    logConsole.textContent = logData.logs.join('\n');
-                    logConsole.scrollTop = logConsole.scrollHeight;
-                }
-            } catch (e) {}
-
-            // Finished all
-            btnSubmit.disabled = false;
-            btnSubmit.textContent = "Bắt Đầu Đăng Ký & Chụp Ảnh";
+            if (!success && badge) {
+                badge.innerHTML = `Thất bại <button type="button" onclick='submitSingleGuestWithRetry("${unitCode}", ${JSON.stringify(guest)}, ${i})' style="background: var(--error); border:none; color:#fff; border-radius:4px; padding:2px 6px; font-size:10px; font-weight:700; cursor:pointer; margin-left:4px;">🔄 Thử Lại</button>`;
+                badge.className = "status-badge status-error";
+            }
         }
 
-        // Add result details box
+
+
+        /* -----------------------------------------------------
+           RESULTS DISPLAY & LIGHTBOX SLIDESHOW
+        ----------------------------------------------------- */
         function appendResultBox(name, passport, imgFilled, imgSubmitted) {
             document.getElementById('resultsSection').style.display = 'block';
             const container = document.getElementById('resultsContainer');
-            
             const box = document.createElement('div');
             box.className = 'guest-result-box';
             
             const sanitizedName = name.replace(/\s+/g, '_');
-            
-            // Save to global list with titles for Carousel Navigation
             const filledIdx = allImages.length;
-            allImages.push({ 
-                data: imgFilled, 
-                filename: `DienForm_${sanitizedName}.jpg`,
-                title: `Khách: ${name} (${passport}) - 1. Form đã điền`
-            });
+            allImages.push({ data: imgFilled, filename: `DienForm_${sanitizedName}.jpg`, title: `Khách: ${name} (${passport}) - Form Đã Điền` });
             
             const submittedIdx = allImages.length;
-            allImages.push({ 
-                data: imgSubmitted, 
-                filename: `XacNhan_${sanitizedName}.jpg`,
-                title: `Khách: ${name} (${passport}) - 2. Biên nhận gửi`
-            });
-            
+            allImages.push({ data: imgSubmitted, filename: `XacNhan_${sanitizedName}.jpg`, title: `Khách: ${name} (${passport}) - Biên Nhận Gửi` });
+
             box.innerHTML = `
                 <div class="guest-result-header">
                     <span>Khách: ${name} (${passport})</span>
@@ -1106,225 +1589,104 @@
                 </div>
                 <div class="screenshot-grid">
                     <div class="screenshot-item">
-                        <p>1. Form đã điền thông tin</p>
+                        <p>1. Form Đã Điền</p>
                         <div class="screenshot-img-wrapper" onclick="openLightbox(${filledIdx})">
                             <img class="screenshot-img" src="${imgFilled}" alt="Form đã điền">
-                            <div class="zoom-badge">🔍 Xem Full Slide</div>
+                            <div class="zoom-badge">🔍 Xem Slide</div>
                         </div>
-                        <button type="button" onclick="shareOrDownloadImage('${imgFilled}', 'DienForm_${sanitizedName}.jpg')" class="btn-download-single">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
-                            </svg>
-                            Lưu Ảnh Điền Form
+                        <button type="button" onclick="downloadSingleImage('${imgFilled}', 'DienForm_${sanitizedName}.jpg')" class="btn-download-single">
+                            💾 Lưu Ảnh Form
                         </button>
                     </div>
                     <div class="screenshot-item">
-                        <p>2. Biên nhận gửi thành công</p>
+                        <p>2. Biên Nhận Nộp</p>
                         <div class="screenshot-img-wrapper" onclick="openLightbox(${submittedIdx})">
                             <img class="screenshot-img" src="${imgSubmitted}" alt="Xác nhận gửi">
-                            <div class="zoom-badge">🔍 Xem Full Slide</div>
+                            <div class="zoom-badge">🔍 Xem Slide</div>
                         </div>
-                        <button type="button" onclick="shareOrDownloadImage('${imgSubmitted}', 'XacNhan_${sanitizedName}.jpg')" class="btn-download-single">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
-                            </svg>
-                            Lưu Ảnh Biên Nhận
+                        <button type="button" onclick="downloadSingleImage('${imgSubmitted}', 'XacNhan_${sanitizedName}.jpg')" class="btn-download-single">
+                            💾 Lưu Ảnh Biên Nhận
                         </button>
                     </div>
                 </div>
             `;
             container.appendChild(box);
         }
-
-        // Add error details box
-        function appendErrorBox(name, passport, errorMsg, imgError) {
-            document.getElementById('resultsSection').style.display = 'block';
-            const container = document.getElementById('resultsContainer');
-            
-            const box = document.createElement('div');
-            box.className = 'guest-result-box';
-            box.style.borderColor = 'rgba(255, 118, 117, 0.3)';
-            
-            const errIdx = allImages.length;
-            allImages.push({
-                data: imgError,
-                filename: `LoiForm_${name.replace(/\s+/g, '_')}.jpg`,
-                title: `Khách: ${name} (${passport}) - Lỗi: ${errorMsg}`
-            });
-            
-            box.innerHTML = `
-                <div class="guest-result-header">
-                    <span>Khách: ${name} (${passport})</span>
-                    <span class="status-badge status-error">Lỗi: ${errorMsg}</span>
-                </div>
-                <div class="screenshot-grid">
-                    <div class="screenshot-item">
-                        <p>Ảnh sự cố</p>
-                        <div class="screenshot-img-wrapper" onclick="openLightbox(${errIdx})">
-                            <img class="screenshot-img" src="${imgError}" alt="Lỗi form">
-                            <div class="zoom-badge">🔍 Xem Full Slide</div>
-                        </div>
-                        <button type="button" onclick="shareOrDownloadImage('${imgError}', 'LoiForm_${name.replace(/\s+/g, '_')}.jpg')" class="btn-download-single">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
-                            </svg>
-                            Lưu Ảnh Lỗi
-                        </button>
-                    </div>
-                </div>
-            `;
-            container.appendChild(box);
-        }
-
-        // Download all images with delay to avoid browser blocking
-        function downloadAllImages() {
-            if (allImages.length === 0) return;
-            
-            // Show alert or instruction for mobile users
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            if (isMobile) {
-                alert("Trên ĐIỆN THOẠI:\nTrình duyệt chặn việc tự động tải xuống nhiều tệp cùng lúc vì lý do bảo mật.\n\nBạn hãy bấm vào nút màu xám 'Lưu Ảnh...' nằm bên dưới mỗi hình hoặc chạm vào ảnh để xem slide và lưu trực tiếp về máy nhé!");
-                return;
-            }
-            
-            // On desktop, trigger batch download with 300ms intervals
-            allImages.forEach((img, idx) => {
-                setTimeout(() => {
-                    const link = document.createElement('a');
-                    link.href = img.data;
-                    link.download = img.filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }, idx * 300);
-            });
-        }
-        
-        // Share image directly to Mobile OS Share Sheet (which contains "Save Image" to Photos app)
-        // or fallback to traditional direct download on Desktop.
-        async function shareOrDownloadImage(imgUrl, filename) {
-            try {
-                if (navigator.share && navigator.canShare) {
-                    const response = await fetch(imgUrl);
-                    const blob = await response.blob();
-                    const file = new File([blob], filename, { type: 'image/jpeg' });
-                    
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            files: [file],
-                            title: filename,
-                            text: 'Lưu ảnh minh chứng đăng ký sảnh Rivergate'
-                        });
-                        return;
-                    }
-                }
-            } catch (e) {
-                console.warn("Share failed, falling back to download", e);
-            }
-            
-            // Fallback for Desktop
-            const link = document.createElement('a');
-            link.href = imgUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // ================= Lightbox Slider Logic =================
-        let currentSlideIndex = 0;
-        let touchStartX = 0;
-        let touchEndX = 0;
 
         function openLightbox(index) {
-            if (!allImages || allImages.length === 0) return;
-            currentSlideIndex = index;
-            updateLightboxSlide();
-            
-            const modal = document.getElementById('imageModal');
-            modal.classList.add('show');
-            document.body.style.overflow = 'hidden'; // Lock background scroll
-            
-            // Bind keyboard arrows
-            window.addEventListener('keydown', handleLightboxKeydown);
+            currentSlideIdx = index;
+            updateLightboxContent();
+            document.getElementById('imageModal').classList.add('show');
         }
 
         function closeLightbox(e) {
-            if (e && e.target && e.target.classList && !e.target.classList.contains('modal') && !e.target.classList.contains('lightbox-close')) {
-                return;
+            if (!e || e.target.id === 'imageModal' || e.target.classList.contains('lightbox-close')) {
+                document.getElementById('imageModal').classList.remove('show');
             }
-            const modal = document.getElementById('imageModal');
-            modal.classList.remove('show');
-            document.body.style.overflow = ''; // Unlock background scroll
-            window.removeEventListener('keydown', handleLightboxKeydown);
-        }
-
-        function updateLightboxSlide() {
-            if (!allImages || allImages.length === 0) return;
-            if (currentSlideIndex < 0) currentSlideIndex = allImages.length - 1;
-            if (currentSlideIndex >= allImages.length) currentSlideIndex = 0;
-
-            const item = allImages[currentSlideIndex];
-            const modalImg = document.getElementById('modalImg');
-            
-            // Smooth transition animation
-            modalImg.style.opacity = '0.3';
-            modalImg.style.transform = 'scale(0.97)';
-            
-            setTimeout(() => {
-                modalImg.src = item.data;
-                modalImg.alt = item.title;
-                modalImg.style.opacity = '1';
-                modalImg.style.transform = 'scale(1)';
-            }, 100);
-
-            document.getElementById('lightboxCaption').textContent = item.title;
-            document.getElementById('lightboxCounter').textContent = `${currentSlideIndex + 1} / ${allImages.length}`;
-        }
-
-        function nextSlide() {
-            currentSlideIndex++;
-            updateLightboxSlide();
         }
 
         function prevSlide() {
-            currentSlideIndex--;
-            updateLightboxSlide();
+            if (allImages.length === 0) return;
+            currentSlideIdx = (currentSlideIdx - 1 + allImages.length) % allImages.length;
+            updateLightboxContent();
+        }
+
+        function nextSlide() {
+            if (allImages.length === 0) return;
+            currentSlideIdx = (currentSlideIdx + 1) % allImages.length;
+            updateLightboxContent();
+        }
+
+        function updateLightboxContent() {
+            if (allImages.length === 0) return;
+            const item = allImages[currentSlideIdx];
+            document.getElementById('modalImg').src = item.data || '';
+            document.getElementById('lightboxCaption').textContent = item.title || 'Ảnh Minh Chứng';
+            document.getElementById('lightboxCounter').textContent = `${currentSlideIdx + 1} / ${allImages.length}`;
+
+            const prevBtn = document.querySelector('.lightbox-nav-btn.prev');
+            const nextBtn = document.querySelector('.lightbox-nav-btn.next');
+            if (prevBtn && nextBtn) {
+                const showNav = allImages.length > 1;
+                prevBtn.style.display = showNav ? 'flex' : 'none';
+                nextBtn.style.display = showNav ? 'flex' : 'none';
+            }
+        }
+
+
+        function downloadSingleImage(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         function saveCurrentSlideImage() {
-            if (!allImages || allImages.length === 0) return;
-            const item = allImages[currentSlideIndex];
-            shareOrDownloadImage(item.data, item.filename);
+            const item = allImages[currentSlideIdx];
+            downloadSingleImage(item.data, item.filename);
         }
 
-        function handleLightboxKeydown(e) {
-            if (e.key === 'ArrowRight') nextSlide();
-            if (e.key === 'ArrowLeft') prevSlide();
-            if (e.key === 'Escape') closeLightbox();
-        }
-
-        // Swipe Gestures for Mobile Touch Devices
-        window.addEventListener('DOMContentLoaded', () => {
-            const stage = document.getElementById('lightboxStage');
-            if (stage) {
-                stage.addEventListener('touchstart', (e) => {
-                    touchStartX = e.changedTouches[0].screenX;
-                }, { passive: true });
-
-                stage.addEventListener('touchend', (e) => {
-                    touchEndX = e.changedTouches[0].screenX;
-                    const swipeDistance = touchEndX - touchStartX;
-                    if (Math.abs(swipeDistance) > 40) {
-                        if (swipeDistance < 0) {
-                            nextSlide(); // Vuốt sang trái -> Xem ảnh kế tiếp
-                        } else {
-                            prevSlide(); // Vuốt sang phải -> Xem ảnh trước
-                        }
-                    }
-                }, { passive: true });
+        async function downloadAllImages() {
+            if (allImages.length === 0) return;
+            const zip = new JSZip();
+            for (let i = 0; i < allImages.length; i++) {
+                const img = allImages[i];
+                const res = await fetch(img.data);
+                const blob = await res.blob();
+                zip.file(img.filename, blob);
             }
-        });
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Rivergate_MinhChung_${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
