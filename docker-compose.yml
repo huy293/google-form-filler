@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: google-form-filler
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin
+    volumes:
+      - ./.sessions.json:/app/.sessions.json
+      - ./.pro_sessions.json:/app/.pro_sessions.json
