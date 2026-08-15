@@ -160,7 +160,16 @@ FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeXLQCQG6siLjJZZ4ZTxVcNpOYy
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Fully stateless container, no pre-warming to keep initial RAM footprint extremely low
+    # Pre-warm OCR engine in background thread on startup so first user click is instant
+    import threading
+    def _warmup():
+        try:
+            r = cccd_app.get_easy_ocr()
+            if r:
+                print("[OK] EasyOCR engine ready for instant extraction!")
+        except Exception as e:
+            print(f"[WARN] Warmup EasyOCR: {e}")
+    threading.Thread(target=_warmup, daemon=True).start()
     yield
 
 app = FastAPI(title="Google Form Auto-Filler Web API", lifespan=lifespan)
@@ -399,18 +408,13 @@ async def fill_form_playwright(data: SubmitRequest):
                 log_step(f"1. [{guest_name}] Preparing form page...")
             
             async with async_playwright() as p:
-                launch_args = []
-                if os.name != 'nt':  # Linux/Docker
-                    launch_args = [
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                        "--single-process",
-                        "--js-flags=--max-old-space-size=128",
-                        "--disable-extensions",
-                        "--disable-default-apps"
-                    ]
+                launch_args = [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu"
+                ] if os.name != 'nt' else []
+
                 is_headless = os.name != 'nt'
                 browser = await p.chromium.launch(
                     headless=is_headless,
@@ -428,16 +432,14 @@ async def fill_form_playwright(data: SubmitRequest):
                 
                 page = await context.new_page()
                 
-                # Block fonts, analytics, and tracking scripts
+                # Block heavy analytics and ads (do not block fonts to prevent Google Form stall)
                 async def handle_route(route):
                     try:
                         url = route.request.url.lower()
-                        resource_type = route.request.resource_type
                         if any(domain in url for domain in [
-                            "google-analytics.com", "googletagmanager.com", "analytics", 
-                            "collect?", "doubleclick.net", "googleadservices.com",
-                            "fonts.googleapis.com", "fonts.gstatic.com"
-                        ]) or resource_type in ["font"]:
+                            "google-analytics.com", "googletagmanager.com", 
+                            "doubleclick.net", "googleadservices.com"
+                        ]):
                             await route.abort()
                         else:
                             await route.continue_()
@@ -445,8 +447,7 @@ async def fill_form_playwright(data: SubmitRequest):
                         pass
                 await page.route("**/*", handle_route)
 
-                
-                await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=20000)
+                await page.goto(FORM_URL, wait_until="domcontentloaded", timeout=30000)
                 
                 # 1. Clean & Format Unit Code
                 unit_code_clean = row_data["Mã Căn Hộ"].strip().upper()
