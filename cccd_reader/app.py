@@ -27,27 +27,28 @@ if MLP_PATH.exists():
         print(f'[WARN] Optional digit MLP failed to load: {e}')
 
 # ─── OCR: EasyOCR primary, Tesseract secondary ──────────────────────
-import pytesseract
-# Tesseract paths (Windows)
-for _tess_path in [
-    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-]:
-    if Path(_tess_path).exists():
-        pytesseract.pytesseract.tesseract_cmd = _tess_path
-        print(f'[OK] Tesseract found: {_tess_path}')
-        break
-
 TESS_OK = False
 try:
+    import pytesseract
+    for _tess_path in [
+        r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+    ]:
+        if Path(_tess_path).exists():
+            pytesseract.pytesseract.tesseract_cmd = _tess_path
+            print(f'[OK] Tesseract found: {_tess_path}')
+            break
     pytesseract.get_tesseract_version()
     TESS_OK = True
     print('[OK] Tesseract is working')
-except:
+except Exception:
     print('[WARN] Tesseract not available, will use EasyOCR')
 
-# Short path for EasyOCR models to avoid Windows 260-char limit
-EASYOCR_MODEL_DIR = r'C:\Tmp\eocr'
+# Short path for EasyOCR models to avoid Windows 260-char limit / Linux compatibility
+if os.name == 'nt':
+    EASYOCR_MODEL_DIR = r'C:\Tmp\eocr'
+else:
+    EASYOCR_MODEL_DIR = '/tmp/eocr'
 os.makedirs(EASYOCR_MODEL_DIR, exist_ok=True)
 
 ocr_easyreader = None
