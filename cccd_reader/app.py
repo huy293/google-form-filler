@@ -1171,30 +1171,31 @@ class IntelligentDocumentEngine:
                 'KINGD', 'IRELA', 'CITIZ', 'ESTAD', 'EUROP', 'AUTOR', 'AUTHOR', 'MOMO', 'CARD'
             ]
 
-            # 1. Visual Passport Number Search (Prioritize clear header tokens)
+            # 1. Visual Passport Number Search (Only fallback to visual search if MRZ is missing or invalid)
             curr_no = fields.get('passport_number', '')
             is_invalid_no = not curr_no or len(curr_no) < 7 or curr_no.startswith('P<') or curr_no.startswith('PN2') or curr_no.startswith('P8') or bool(re.search(r'[0-9]{6}[0-9][MF]', curr_no))
             
-            visual_pass_no = ''
-            for t in tokens:
-                txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
-                if any(k in txt_clean for k in BLACKLIST_WORDS):
-                    continue
-                if len(txt_clean) == 8 and txt_clean.isdigit(): # likely date DDMMYYYY
-                    continue
-                for pattern in PASSPORT_REGEX:
-                    if re.match(pattern, txt_clean):
-                        # Top-to-middle header area of passport
-                        if t['cy'] < (0.65 * h) and t['cx'] > (0.25 * w):
-                            visual_pass_no = txt_clean
-                            break
-                if visual_pass_no:
-                    break
+            if is_invalid_no:
+                visual_pass_no = ''
+                for t in tokens:
+                    txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
+                    if any(k in txt_clean for k in BLACKLIST_WORDS):
+                        continue
+                    if len(txt_clean) == 8 and txt_clean.isdigit(): # likely date DDMMYYYY
+                        continue
+                    for pattern in PASSPORT_REGEX:
+                        if re.match(pattern, txt_clean):
+                            # Top-to-middle header area of passport
+                            if t['cy'] < (0.65 * h) and t['cx'] > (0.25 * w):
+                                visual_pass_no = txt_clean
+                                break
+                    if visual_pass_no:
+                        break
 
-            if visual_pass_no:
-                fields['passport_number'] = visual_pass_no
-            elif is_invalid_no:
-                fields.pop('passport_number', None)
+                if visual_pass_no:
+                    fields['passport_number'] = visual_pass_no
+                else:
+                    fields.pop('passport_number', None)
 
             # 2. Visual Surname Search
             for i, t in enumerate(tokens):
