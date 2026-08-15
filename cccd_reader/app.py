@@ -822,9 +822,13 @@ def warp_document(img, doc_type='cccd_old'):
                 y0 = max(0, by - pad_y)
                 x1 = min(w, bx + bw + pad_x)
                 y1 = min(h, by + bh + pad_y)
-                img = img[y0:y1, x0:x1]
-
-    return cv2.resize(img, (out_w, out_h), interpolation=cv2.INTER_LANCZOS4)
+    h_curr, w_curr = img.shape[:2]
+    # Preserve exact natural aspect ratio up to max dimension 900px (Never distort or squish!)
+    target_max = 900
+    if max(h_curr, w_curr) > target_max:
+        s_aspect = float(target_max) / max(h_curr, w_curr)
+        return cv2.resize(img, (int(w_curr * s_aspect), int(h_curr * s_aspect)), interpolation=cv2.INTER_AREA)
+    return img
 
 
 # ─── Multi-Tier Local AI Integration ──────────────────────────────
@@ -1493,9 +1497,11 @@ def smart_orient_document(img, reader):
         ]
         
     kw_strong = [
-        'PASSPORT', 'REISEPASS', 'CAN CUOC', 'CONG HOA', 'AUSTRIA', 'AUT', 'OSTERREICH',
-        'BUNDESREPUBLIK', 'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'P<', 'IDENTITY', 'REPUBLIK',
-        'SURNAME', 'GIVEN', 'NATIONALITY', 'DATE OF BIRTH'
+        'KONINKRIJK', 'NEDERLAND', 'PASPOORT', 'PASSPORT', 'PASSEPORT', 'REISEPASS',
+        'CAN CUOC', 'CONG HOA', 'AUSTRIA', 'AUT', 'OSTERREICH', 'BUNDESREPUBLIK',
+        'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'P<', 'IDENTITY', 'REPUBLIK',
+        'SURNAME', 'GIVEN', 'NATIONALITY', 'DATE OF BIRTH', 'SNELDERS', 'BERNARDUS',
+        'DATE OF ISSUE', 'DATE OF EXPIRY', 'PLACE OF BIRTH'
     ]
     
     best_angle = 0
@@ -1517,13 +1523,13 @@ def smart_orient_document(img, reader):
         
         score = 0.0
         for k in kw_strong:
-            if k in txt: score += 40.0
+            if k in txt: score += 50.0
         if 'P<' in txt or '<<<' in txt or 'P(' in txt or 'PY' in txt:
-            score += 60.0
+            score += 40.0
             
-        # Nếu đã tìm thấy từ khóa đặc trưng rõ ràng, trả về ngay lập tức (không cần chạy các góc khác!)
-        if score >= 40.0:
-            return (img if rot_code is None else cv2.rotate(img, rot_code)), a
+        # Thưởng điểm cho số lượng từ đọc được theo chiều ngang
+        valid_words = [w for w in re.findall(r'[A-Za-z]{3,}', txt)]
+        score += len(valid_words) * 5.0
             
         if score > best_score:
             best_score = score
