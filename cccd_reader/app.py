@@ -19,9 +19,12 @@ app = Flask(__name__,
 MLP_PATH = BASE_DIR / 'digit_mlp.pkl'
 digit_clf = None
 if MLP_PATH.exists():
-    with open(MLP_PATH, 'rb') as f:
-        digit_clf = pickle.load(f)
-    print(f'[OK] Loaded digit MLP from {MLP_PATH}')
+    try:
+        with open(MLP_PATH, 'rb') as f:
+            digit_clf = pickle.load(f)
+        print(f'[OK] Loaded digit MLP from {MLP_PATH}')
+    except Exception as e:
+        print(f'[WARN] Optional digit MLP failed to load: {e}')
 
 # ─── OCR: EasyOCR primary, Tesseract secondary ──────────────────────
 import pytesseract

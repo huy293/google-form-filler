@@ -5,11 +5,15 @@ python-multipart>=0.0.6
 pandas>=2.0.0
 openpyxl>=3.1.0
 playwright==1.40.0
+playwright-stealth>=1.0.6
 opencv-python-headless>=4.8.0
 easyocr>=1.7.0
 ultralytics>=8.0.0
 torch
 torchvision
 flask>=2.0.0
+scikit-learn>=1.2.0
+Pillow>=9.0.0
+
 
 
