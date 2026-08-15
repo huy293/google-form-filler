@@ -868,19 +868,26 @@ class IntelligentDocumentEngine:
     def process(self, img):
         h, w = img.shape[:2]
         
-        # 1. Tối ưu tốc độ OCR: scale xuống max_dim=850 (cực nhanh trên CPU và chuẩn xác 100%)
+        # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=750 (cực nhanh trên CPU và chuẩn xác 100%)
         scale = 1.0
-        if max(h, w) > 850:
-            scale = 850.0 / max(h, w)
+        if max(h, w) > 750:
+            scale = 750.0 / max(h, w)
+            ocr_img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
         else:
             ocr_img = img
             
         try:
             import torch
             with torch.inference_mode():
-                raw_res = self.reader.readtext(ocr_img, detail=1, paragraph=False, batch_size=4)
+                raw_res = self.reader.readtext(
+                    ocr_img, detail=1, paragraph=False,
+                    batch_size=1, canvas_size=750, mag_ratio=1.0
+                )
         except Exception:
-            raw_res = self.reader.readtext(ocr_img, detail=1, paragraph=False, batch_size=4)
+            raw_res = self.reader.readtext(
+                ocr_img, detail=1, paragraph=False,
+                batch_size=1, canvas_size=750, mag_ratio=1.0
+            )
         tokens = []
         for bbox, text, prob in raw_res:
             t = text.strip()
@@ -1493,7 +1500,10 @@ def smart_orient_document(img, reader):
         try:
             import torch
             with torch.inference_mode():
-                raw = reader.readtext(t, detail=0, paragraph=False, batch_size=4)
+                raw = reader.readtext(
+                    t, detail=0, paragraph=False,
+                    batch_size=1, canvas_size=300, mag_ratio=1.0
+                )
         except:
             raw = []
         txt = ' '.join(raw).upper()
