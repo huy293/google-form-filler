@@ -1535,30 +1535,33 @@ class IntelligentDocumentEngine:
                     fields.get('gender', '')
                 )
 
+        # Fail-safe: Nếu kết quả passport bị trống tên hoặc số giấy tờ, tự động lật 180 độ phục hồi
+        if doc_type == 'passport' and not fields.get('full_name') and not _flipped_180:
+            print("[INFO] Passport extraction incomplete! Trying fail-safe 180-deg flip...")
+            d_type_flip, f_flip, c_flip, m_flip, img_flip = self.process(cv2.rotate(img, cv2.ROTATE_180), _flipped_180=True)
+            if f_flip.get('full_name') or f_flip.get('passport_number'):
+                return d_type_flip, f_flip, c_flip, m_flip, img_flip
+
         return doc_type, fields, crops, mrz_parsed, img
 
 
 def smart_orient_document(img, reader):
     """
-    Phát hiện chiều xoay tài liệu thông minh & siêu chuẩn (Ultra-Smart 4-Layer Orientation):
-    1. Đo lường độ dài ngang dòng chữ (Horizontal Aspect Ratio)
-    2. Vị trí mã MRZ ICAO (Bắt buộc ở đáy tài liệu)
-    3. Bộ từ điển đối chiếu đa quốc gia (Hộ chiếu Quốc tế & CCCD)
+    Phát hiện chiều xoay tài liệu siêu chuẩn xác (Sharp 380px Multi-Layer Spatial Orientation):
+    1. Đo lường tỷ lệ ngang hộp chữ
+    2. Vị trí Tiêu đề (Bắt buộc ở đỉnh)
+    3. Vị trí MRZ ICAO (Bắt buộc ở đáy)
+    4. Cảm biến ký tự lộn ngược (> hoặc d>)
     """
     if img is None or img.size == 0 or reader is None:
         return img, 0
         
     h, w = img.shape[:2]
-    # Resize thumbnail 180px để kiểm tra siêu tốc 0.08s
-    s = 180.0 / max(h, w)
+    # Resize thumbnail 380px sắc nét tuyệt đối để nhận diện từ khóa & MRZ chính xác 100%
+    s = 380.0 / max(h, w)
     thumb = cv2.resize(img, (int(w*s), int(h*s)), interpolation=cv2.INTER_AREA)
     
-    angles = [
-        (0, None),
-        (180, cv2.ROTATE_180),
-        (90, cv2.ROTATE_90_CLOCKWISE),
-        (270, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    ]
+    # Nếu ảnh dọc (Portrait), chỉ cần thử góc 90 và 270 trước
     if h > w:
         angles = [
             (90, cv2.ROTATE_90_CLOCKWISE),
@@ -1566,19 +1569,25 @@ def smart_orient_document(img, reader):
             (0, None),
             (180, cv2.ROTATE_180)
         ]
+    else:
+        angles = [
+            (0, None),
+            (180, cv2.ROTATE_180),
+            (90, cv2.ROTATE_90_CLOCKWISE),
+            (270, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        ]
     
-    kw_strong = [
+    kw_header = [
         'KONINKRIJK', 'NEDERLAND', 'PASPOORT', 'PASSPORT', 'PASSEPORT', 'REISEPASS',
         'CAN CUOC', 'CONG HOA', 'AUSTRIA', 'AUT', 'OSTERREICH', 'BUNDESREPUBLIK',
-        'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'P<', 'IDENTITY', 'REPUBLIK',
-        'SURNAME', 'GIVEN', 'NATIONALITY', 'DATE OF BIRTH', 'SNELDERS', 'BERNARDUS',
-        'DATE OF ISSUE', 'DATE OF EXPIRY', 'PLACE OF BIRTH', 'DEUTSCHLAND', 'REPUBLIQUE',
-        'AUSTRALIA', 'CANADA', 'NEW ZEALAND', 'SINGAPORE', 'MALAYSIA', 'JAPAN', 'KOREA'
+        'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'DEUTSCHLAND', 'REPUBLIQUE',
+        'AUSTRALIA', 'CANADA', 'NEW ZEALAND', 'SINGAPORE', 'MALAYSIA', 'JAPAN', 'KOREA',
+        'ESPAÑA', 'ESPANA', 'ITALIANA', 'FRANCAISE'
     ]
     
     best_angle = 0
     best_rot = None
-    best_score = -9999.0
+    best_score = -99999.0
     
     for a, rot_code in angles:
         t = thumb if rot_code is None else cv2.rotate(thumb, rot_code)
@@ -1588,23 +1597,22 @@ def smart_orient_document(img, reader):
             with torch.inference_mode():
                 raw = reader.readtext(
                     t, detail=1, paragraph=False,
-                    batch_size=32, canvas_size=180, mag_ratio=1.0
+                    batch_size=32, canvas_size=380, mag_ratio=1.0
                 )
         except:
             raw = []
             
         score = 0.0
         txt_list = []
-        # Ưu tiên chiều ngang tự nhiên nếu ảnh gốc đã là Landscape
+        # Ưu tiên chiều ngang nếu đã là Landscape
         if a == 0 and w >= h:
-            score += 30.0
+            score += 20.0
 
         for bbox, text, prob in raw:
             t_str = text.strip().upper()
             if not t_str: continue
             txt_list.append(t_str)
             
-            # 1. Đo lường tỷ lệ ngang/dọc của từng hộp chữ: Chữ ngang có w > h
             box_w = max(p[0] for p in bbox) - min(p[0] for p in bbox)
             box_h = max(p[1] for p in bbox) - min(p[1] for p in bbox)
             box_cy = (min(p[1] for p in bbox) + max(p[1] for p in bbox)) / 2.0
@@ -1612,43 +1620,46 @@ def smart_orient_document(img, reader):
             if box_h > 0:
                 aspect = float(box_w) / float(box_h)
                 if aspect >= 1.4:
-                    score += 8.0 # Chữ nằm ngang chuẩn
+                    score += 8.0 # Chữ nằm ngang
                 elif aspect < 0.75:
-                    score -= 5.0 # Chữ bị dựng đứng / nghiêng dọc
+                    score -= 5.0
                     
-            # 2. Vị trí mã MRZ (P<... hoặc <<<)
-            if 'P<' in t_str or '<<<' in t_str or t_str.startswith('P<') or t_str.startswith('PY'):
-                if box_cy > (0.50 * th_h):
-                    score += 200.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU 100%!
+            # 1. Vị trí mã MRZ chuẩn (< hoặc << hoặc P<)
+            if '<' in t_str or '<<' in t_str or 'P<' in t_str or bool(re.search(r'[0-9]{6}[0-9][MF]', t_str)):
+                if box_cy > (0.45 * th_h):
+                    score += 300.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU TUYỆT ĐỐI!
                 else:
-                    score -= 300.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    score -= 400.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    
+            # 2. Cảm biến ký tự lộn ngược do xoay 180 (> hoặc >> hoặc d>)
+            if '>' in t_str or '>>' in t_str or 'D>' in t_str:
+                score -= 300.0
                     
             # 3. Vị trí tiêu đề đầu thẻ (Header ở nửa trên)
-            if any(k in t_str for k in ['REPUBLIQUE', 'FRANCAISE', 'PASSEPORT', 'PASSPORT', 'KONINKRIJK', 'CAN CUOC', 'BUNDESREPUBLIK']):
-                if box_cy < (0.45 * th_h):
-                    score += 150.0 # Tiêu đề ở trên: ĐÚNG CHIỀU!
+            if any(k in t_str for k in kw_header):
+                if box_cy < (0.50 * th_h):
+                    score += 250.0 # Tiêu đề ở trên: ĐÚNG CHIỀU!
                 else:
-                    score -= 100.0
+                    score -= 350.0 # Tiêu đề ở dưới đáy: BỊ LỘN NGƯỢC!
                     
         full_txt = ' '.join(txt_list)
-        # 3. Điểm từ khóa
-        for k in kw_strong:
+        for k in kw_header:
             if k in full_txt:
-                score += 40.0
+                score += 50.0
                 
         valid_words = [w for w in re.findall(r'[A-Za-z]{3,}', full_txt)]
-        score += len(valid_words) * 4.0
+        score += len(valid_words) * 3.0
         
-        # Nếu góc 0 đã cực kỳ chuẩn (score >= 120), thoát tức thì trong 0.08s!
-        if a == 0 and score >= 120.0:
-            return img, 0
+        # Nếu góc này đã đạt điểm cực cao (header chuẩn + mrz chuẩn), lấy luôn
+        if score >= 350.0:
+            return (img if rot_code is None else cv2.rotate(img, rot_code)), a
         
         if score > best_score:
             best_score = score
             best_angle = a
             best_rot = rot_code
             
-    if best_rot is not None and best_score > -100:
+    if best_rot is not None:
         return cv2.rotate(img, best_rot), best_angle
     return img, 0
 
