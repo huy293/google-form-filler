@@ -838,16 +838,25 @@ def warp_document(img, doc_type='cccd_old'):
 
 
 # ─── Multi-Tier Local AI Integration ──────────────────────────────
-from ai_trainer.doc_ai_detector import DocumentAIDetector
+try:
+    from ai_trainer.doc_ai_detector import DocumentAIDetector
+except ImportError:
+    try:
+        from cccd_reader.ai_trainer.doc_ai_detector import DocumentAIDetector
+    except ImportError:
+        DocumentAIDetector = None
 
 doc_ai_instance = None
 
 def get_doc_ai():
     global doc_ai_instance
-    if doc_ai_instance is None:
-        reader = get_easy_ocr()
-        weights_p = BASE_DIR / 'ai_trainer' / 'runs' / 'doc_detector_yolov8' / 'weights' / 'best.pt'
-        doc_ai_instance = DocumentAIDetector(weights_path=weights_p, easy_reader=reader)
+    if doc_ai_instance is None and DocumentAIDetector is not None:
+        try:
+            reader = get_easy_ocr()
+            weights_p = BASE_DIR / 'ai_trainer' / 'runs' / 'doc_detector_yolov8' / 'weights' / 'best.pt'
+            doc_ai_instance = DocumentAIDetector(weights_path=weights_p, easy_reader=reader)
+        except Exception:
+            doc_ai_instance = None
     return doc_ai_instance
 
 
