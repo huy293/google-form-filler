@@ -255,23 +255,41 @@ async def get_pro_status(request: Request):
 def _sync_extract(contents: bytes):
     import numpy as np
     import cv2
+    import time
+    t0 = time.time()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
+        print("[EXTRACT ERROR] Cannot decode image bytes")
         return None
     
-    reader = cccd_app.get_easy_ocr()
-    oriented_img, rot_deg = cccd_app.smart_orient_document(img, reader)
+    h, w = img.shape[:2]
+    print(f"[EXTRACT] 1. Received image shape: {w}x{h} ({len(contents)/1024:.1f} KB)")
     
+    # Scale down multi-megapixel camera photos before OCR for high speed
+    if max(h, w) > 1200:
+        scale = 1200.0 / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        print(f"[EXTRACT] Resized to {img.shape[1]}x{img.shape[0]} in {time.time()-t0:.2f}s")
+    
+    reader = cccd_app.get_easy_ocr()
+    t_orient = time.time()
+    oriented_img, rot_deg = cccd_app.smart_orient_document(img, reader)
+    print(f"[EXTRACT] 2. Smart oriented (angle {rot_deg}) in {time.time()-t_orient:.2f}s")
+    
+    t_eng = time.time()
     engine = cccd_app.IntelligentDocumentEngine(reader)
     doc_type, fields, crops, mrz_parsed = engine.process(oriented_img)
+    print(f"[EXTRACT] 3. Engine process finished ({doc_type}) in {time.time()-t_eng:.2f}s")
     
     clean_fields = {k: v for k, v in fields.items() if v}
             
-    # Generate document thumbnail for UI display (Auto-crop to card/passport boundary like port 5000)
+    # Generate document thumbnail for UI display
+    t_warp = time.time()
     card_img = cccd_app.warp_document(oriented_img, doc_type)
     success, buf = cv2.imencode(".jpg", card_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     doc_img_b64 = "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8') if success else ""
+    print(f"[EXTRACT] 4. Warped & encoded thumbnail in {time.time()-t_warp:.2f}s. Total time: {time.time()-t0:.2f}s")
 
     layout_label_map = {
         'passport': '🛂 Hộ Chiếu Quốc Tế (Passport)',
