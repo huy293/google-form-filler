@@ -252,16 +252,19 @@ async def verify_pro_pass(data: VerifyProRequest, response: Response):
 async def get_pro_status(request: Request):
     return {"unlocked": is_pro_authenticated(request)}
 
+_extract_lock = threading.Lock()
+
 def _sync_extract(contents: bytes):
-    import numpy as np
-    import cv2
-    import time
-    t0 = time.time()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        print("[EXTRACT ERROR] Cannot decode image bytes")
-        return None
+    with _extract_lock:
+        import numpy as np
+        import cv2
+        import time
+        t0 = time.time()
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            print("[EXTRACT ERROR] Cannot decode image bytes")
+            return None
     
     h, w = img.shape[:2]
     print(f"[EXTRACT] 1. Received image shape: {w}x{h} ({len(contents)/1024:.1f} KB)")

@@ -51,26 +51,27 @@ else:
     EASYOCR_MODEL_DIR = '/tmp/eocr'
 os.makedirs(EASYOCR_MODEL_DIR, exist_ok=True)
 
+import threading
+_easyocr_lock = threading.Lock()
 ocr_easyreader = None
+
 def get_easy_ocr():
     global ocr_easyreader
     if ocr_easyreader is None:
-        try:
-            import easyocr
-            ocr_easyreader = easyocr.Reader(
-                ['vi', 'en'], gpu=False, verbose=False,
-                model_storage_directory=EASYOCR_MODEL_DIR,
-            )
-            print('[OK] EasyOCR loaded')
-        except Exception as e:
-            print(f'[WARN] EasyOCR unavailable: {e}')
+        with _easyocr_lock:
+            if ocr_easyreader is None:
+                try:
+                    import torch
+                    torch.set_num_threads(2)
+                    import easyocr
+                    ocr_easyreader = easyocr.Reader(
+                        ['vi', 'en'], gpu=False, verbose=False,
+                        model_storage_directory=EASYOCR_MODEL_DIR,
+                    )
+                    print('[OK] EasyOCR singleton loaded successfully')
+                except Exception as e:
+                    print(f'[WARN] EasyOCR unavailable: {e}')
     return ocr_easyreader
-
-# Pre-warm EasyOCR in background thread on startup
-import threading
-def _prewarm_easyocr():
-    get_easy_ocr()
-threading.Thread(target=_prewarm_easyocr, daemon=True).start()
 
 def tess_ocr(img, lang='vie+eng', config='--psm 7'):
     """Run Tesseract on a crop image"""
@@ -866,11 +867,15 @@ class IntelligentDocumentEngine:
         scale = 1.0
         if max(h, w) > 850:
             scale = 850.0 / max(h, w)
-            ocr_img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
         else:
             ocr_img = img
-        
-        raw_res = self.reader.readtext(ocr_img, detail=1, paragraph=False, batch_size=4)
+            
+        try:
+            import torch
+            with torch.inference_mode():
+                raw_res = self.reader.readtext(ocr_img, detail=1, paragraph=False, batch_size=4)
+        except Exception:
+            raw_res = self.reader.readtext(ocr_img, detail=1, paragraph=False, batch_size=4)
         tokens = []
         for bbox, text, prob in raw_res:
             t = text.strip()
@@ -1481,7 +1486,9 @@ def smart_orient_document(img, reader):
     for a, rot_code in angles:
         t = thumb if rot_code is None else cv2.rotate(thumb, rot_code)
         try:
-            raw = reader.readtext(t, detail=0, paragraph=False, batch_size=4)
+            import torch
+            with torch.inference_mode():
+                raw = reader.readtext(t, detail=0, paragraph=False, batch_size=4)
         except:
             raw = []
         txt = ' '.join(raw).upper()
