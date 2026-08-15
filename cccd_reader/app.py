@@ -1471,72 +1471,92 @@ class IntelligentDocumentEngine:
 
 def smart_orient_document(img, reader):
     """
-    Phát hiện chiều xoay tài liệu siêu tốc (Ultra-Fast 0.15s per image):
-    Tự động thử góc chuẩn nhất, thoát ngay khi đạt độ tin cậy cao.
+    Phát hiện chiều xoay tài liệu thông minh & siêu chuẩn (Ultra-Smart 4-Layer Orientation):
+    1. Đo lường độ dài ngang dòng chữ (Horizontal Aspect Ratio)
+    2. Vị trí mã MRZ ICAO (Bắt buộc ở đáy tài liệu)
+    3. Bộ từ điển đối chiếu đa quốc gia (Hộ chiếu Quốc tế & CCCD)
     """
     if img is None or img.size == 0 or reader is None:
         return img, 0
         
     h, w = img.shape[:2]
-    # Resize thumbnail siêu nhẹ 260px để nhận diện hướng trong 0.05s
-    s = 260.0 / max(h, w)
+    # Resize thumbnail 240px để kiểm tra 4 góc cực nhanh trong 0.2s
+    s = 240.0 / max(h, w)
     thumb = cv2.resize(img, (int(w*s), int(h*s)), interpolation=cv2.INTER_AREA)
     
     angles = [
         (0, None),
-        (270, cv2.ROTATE_90_COUNTERCLOCKWISE),
         (90, cv2.ROTATE_90_CLOCKWISE),
-        (180, cv2.ROTATE_180)
+        (180, cv2.ROTATE_180),
+        (270, cv2.ROTATE_90_COUNTERCLOCKWISE)
     ]
-    if h > w:
-        angles = [
-            (270, cv2.ROTATE_90_COUNTERCLOCKWISE),
-            (90, cv2.ROTATE_90_CLOCKWISE),
-            (0, None),
-            (180, cv2.ROTATE_180)
-        ]
-        
+    
     kw_strong = [
         'KONINKRIJK', 'NEDERLAND', 'PASPOORT', 'PASSPORT', 'PASSEPORT', 'REISEPASS',
         'CAN CUOC', 'CONG HOA', 'AUSTRIA', 'AUT', 'OSTERREICH', 'BUNDESREPUBLIK',
         'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'P<', 'IDENTITY', 'REPUBLIK',
         'SURNAME', 'GIVEN', 'NATIONALITY', 'DATE OF BIRTH', 'SNELDERS', 'BERNARDUS',
-        'DATE OF ISSUE', 'DATE OF EXPIRY', 'PLACE OF BIRTH'
+        'DATE OF ISSUE', 'DATE OF EXPIRY', 'PLACE OF BIRTH', 'DEUTSCHLAND', 'REPUBLIQUE',
+        'AUSTRALIA', 'CANADA', 'NEW ZEALAND', 'SINGAPORE', 'MALAYSIA', 'JAPAN', 'KOREA'
     ]
     
     best_angle = 0
     best_rot = None
-    best_score = -1.0
+    best_score = -9999.0
     
     for a, rot_code in angles:
         t = thumb if rot_code is None else cv2.rotate(thumb, rot_code)
+        th_h, th_w = t.shape[:2]
         try:
             import torch
             with torch.inference_mode():
                 raw = reader.readtext(
-                    t, detail=0, paragraph=True,
-                    batch_size=8, canvas_size=240, mag_ratio=1.0
+                    t, detail=1, paragraph=False,
+                    batch_size=16, canvas_size=240, mag_ratio=1.0
                 )
         except:
             raw = []
-        txt = ' '.join(raw).upper()
-        
+            
         score = 0.0
+        txt_list = []
+        for bbox, text, prob in raw:
+            t_str = text.strip().upper()
+            if not t_str: continue
+            txt_list.append(t_str)
+            
+            # 1. Đo lường tỷ lệ ngang/dọc của từng hộp chữ: Chữ ngang có w > h
+            box_w = max(p[0] for p in bbox) - min(p[0] for p in bbox)
+            box_h = max(p[1] for p in bbox) - min(p[1] for p in bbox)
+            if box_h > 0:
+                aspect = float(box_w) / float(box_h)
+                if aspect >= 1.5:
+                    score += 8.0 # Chữ nằm ngang chuẩn
+                elif aspect < 0.8:
+                    score -= 4.0 # Chữ bị dựng đứng / nghiêng dọc
+                    
+            # 2. Vị trí mã MRZ (P<... hoặc <<<)
+            box_cy = (min(p[1] for p in bbox) + max(p[1] for p in bbox)) / 2.0
+            if 'P<' in t_str or '<<<' in t_str or t_str.startswith('P<') or t_str.startswith('PY'):
+                if box_cy > (0.55 * th_h):
+                    score += 150.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU 100%!
+                else:
+                    score -= 200.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    
+        full_txt = ' '.join(txt_list)
+        # 3. Điểm từ khóa
         for k in kw_strong:
-            if k in txt: score += 50.0
-        if 'P<' in txt or '<<<' in txt or 'P(' in txt or 'PY' in txt:
-            score += 40.0
-            
-        # Thưởng điểm cho số lượng từ đọc được theo chiều ngang
-        valid_words = [w for w in re.findall(r'[A-Za-z]{3,}', txt)]
-        score += len(valid_words) * 5.0
-            
+            if k in full_txt:
+                score += 40.0
+                
+        valid_words = [w for w in re.findall(r'[A-Za-z]{3,}', full_txt)]
+        score += len(valid_words) * 4.0
+        
         if score > best_score:
             best_score = score
             best_angle = a
             best_rot = rot_code
             
-    if best_rot is not None and best_score > 0:
+    if best_rot is not None and best_score > -100:
         return cv2.rotate(img, best_rot), best_angle
     return img, 0
 
