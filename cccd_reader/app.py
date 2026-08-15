@@ -883,12 +883,12 @@ class IntelligentDocumentEngine:
             with torch.inference_mode():
                 raw_res = self.reader.readtext(
                     ocr_img, detail=1, paragraph=False,
-                    batch_size=1, canvas_size=750, mag_ratio=1.0
+                    batch_size=16, canvas_size=750, mag_ratio=1.0
                 )
         except Exception:
             raw_res = self.reader.readtext(
                 ocr_img, detail=1, paragraph=False,
-                batch_size=1, canvas_size=750, mag_ratio=1.0
+                batch_size=16, canvas_size=750, mag_ratio=1.0
             )
         tokens = []
         for bbox, text, prob in raw_res:
