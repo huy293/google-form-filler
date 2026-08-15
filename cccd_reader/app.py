@@ -1262,23 +1262,39 @@ class IntelligentDocumentEngine:
                         fields['given_names'] = ' '.join(parts)
                         break
 
-            # 4. Clean Full Name & Fix 0SCAR -> OSCAR & VIDALKMAS -> VIDAL MAS
-            if fields.get('surname'):
-                s_val = re.sub(r'([A-Za-z]{3,})[kK]([A-Za-z]{3,})', r'\1 \2', fields['surname'])
-                fields['surname'] = ' '.join(s_val.split()).title()
-
-            if fields.get('given_names'):
-                g_val = re.sub(r'\b0([A-Z]+)', r'O\1', fields['given_names'].upper())
-                fields['given_names'] = ' '.join(g_val.split()).title()
-
-            name_parts = [fields.get('surname', ''), fields.get('given_names', '')]
-            full_name = ' '.join(p for p in name_parts if p).strip()
+            # 4. Clean Full Name & Deduplicate
+            s_name = fields.get('surname', '').strip()
+            g_name = fields.get('given_names', '').strip()
+            
+            if s_name and g_name:
+                if s_name.upper() == g_name.upper():
+                    full_name = s_name.upper()
+                elif s_name.upper() in g_name.upper():
+                    full_name = g_name.upper()
+                elif g_name.upper() in s_name.upper():
+                    full_name = s_name.upper()
+                else:
+                    full_name = f"{s_name} {g_name}".upper()
+            elif s_name:
+                full_name = s_name.upper()
+            elif g_name:
+                full_name = g_name.upper()
+            else:
+                full_name = ''
+                
             if full_name:
-                full_name = re.sub(r'\b0([A-Z]+)', r'O\1', full_name.upper())
+                full_name = re.sub(r'\b0([A-Z]+)', r'O\1', full_name)
                 full_name = re.sub(r'([A-Z]{3,})K([A-Z]{3,})', r'\1 \2', full_name)
                 full_name = re.sub(r'\b(K+|KK+|KKK+|NO|NC|KOE|KDE|XX|YY|ZZ|44|66)\b', '', full_name).strip()
-                full_name = re.sub(r'([A-Z]{3,})S([A-Z]{3,})', r'\1 \2', full_name)
-                fields['full_name'] = ' '.join(full_name.split())
+                # Tự động lọc trùng lặp từ hoặc cụm từ (ví dụ: BERNARDUS ADRIANUS BERNARDUS ADRIANUS)
+                words = full_name.split()
+                dedup_words = []
+                for w in words:
+                    if not dedup_words or w != dedup_words[-1]:
+                        dedup_words.append(w)
+                if len(dedup_words) >= 4 and dedup_words[:2] == dedup_words[2:4]:
+                    dedup_words = dedup_words[:2]
+                fields['full_name'] = ' '.join(dedup_words)
 
             # 5. Visual Nationality Mapping
             all_txt = ' '.join(t['text_no'] for t in tokens)
