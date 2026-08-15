@@ -1022,6 +1022,7 @@
         let currentSlideIdx = 0;
         let proDocImages = {};
         let proDocCrops = {};
+        let proRawFiles = {};
 
         window.addEventListener('load', async () => {
             addStandardGuestRow();
@@ -1241,6 +1242,7 @@
 
             const localPreviewUrl = URL.createObjectURL(file);
             proDocImages[idx] = { data: localPreviewUrl, title: `Khách #${idx} - Ảnh Giấy Tờ Gốc` };
+            proRawFiles[idx] = file;
 
             card.innerHTML = `
                 <div class="guest-row-header">
@@ -1374,7 +1376,20 @@
                     body: formData
                 });
 
-                const data = await res.json();
+                const rawText = await res.text();
+                let data = {};
+                try {
+                    data = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    if (res.status === 502 || rawText.includes('502 Bad Gateway')) {
+                        throw new Error("Server đang khởi động lại (502)");
+                    }
+                    if (res.status === 504 || rawText.includes('504 Gateway Time-out')) {
+                        throw new Error("Server xử lý quá thời gian (504 Timeout)");
+                    }
+                    throw new Error(`Máy chủ phản hồi HTTP ${res.status}`);
+                }
+
                 if (res.ok && data.success) {
                     statusDiv.style.display = 'none';
                     docBadge.textContent = data.layout_label || "🛂 Giấy Tờ Hợp Lệ";
@@ -1426,12 +1441,12 @@
                         if (box && img) { img.src = 'data:image/jpeg;base64,' + pobCrop; box.style.display = 'flex'; }
                     }
                 } else {
-                    statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ ${data.detail || 'Lỗi quét ảnh, vui lòng thử lại!'}</span>`;
+                    statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ ${data.detail || 'Lỗi quét ảnh'}</span> <button type="button" onclick="processSingleProFile(${idx}, proRawFiles[${idx}])" style="background: var(--accent-gold); color: #000; font-weight: 800; border: none; padding: 2px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 8px;">🔄 Quét Lại</button>`;
                 }
 
             } catch (err) {
                 console.error("OCR Fetch Error:", err);
-                statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ Lỗi kết nối OCR: ${err.message || 'Mất kết nối máy chủ'}</span>`;
+                statusDiv.innerHTML = `<span style="color: var(--error); font-weight: 700;">❌ ${err.message || 'Mất kết nối'}</span> <button type="button" onclick="processSingleProFile(${idx}, proRawFiles[${idx}])" style="background: var(--accent-gold); color: #000; font-weight: 800; border: none; padding: 2px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 8px;">🔄 Quét Lại</button>`;
             }
         }
 
