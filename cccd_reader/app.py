@@ -1182,17 +1182,18 @@ class IntelligentDocumentEngine:
                 'STRASBOURG', 'PARIS', 'LYON', 'MARSEILLE', 'OISTERWIJK', 'AMSTERDAM'
             ]
 
-            # 1. Visual Passport Number Search (Prioritize Header Zone on Top-Right)
-            curr_no = fields.get('passport_number', '')
-            is_invalid_no = not curr_no or len(curr_no) < 7 or curr_no.startswith('P<') or curr_no.startswith('PN2') or curr_no.startswith('P8') or bool(re.search(r'[0-9]{6}[0-9][MF]', curr_no))
+            # 1. Visual Passport Number Search (Always Prioritize Clear Header Zone on Top-Right)
+            header_pass_no = ''
+            header_crop = None
             
-            # Tìm trực tiếp tại góc trên bên phải (Top-Right Header của Hộ chiếu Pháp / EU / Quốc Tế)
             for t in tokens:
-                if t['cy'] < (0.35 * h) and t['cx'] > (0.50 * w):
+                if t['cy'] < (0.40 * h) and t['cx'] > (0.45 * w):
                     txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
                     if any(k in txt_clean for k in BLACKLIST_WORDS): continue
+                    if len(txt_clean) == 8 and txt_clean.isdigit(): continue # date DDMMYYYY
+                    
+                    # 1.1 French Format: 2 digits + 2 letters + 5 digits (e.g. 24CA80782)
                     if len(txt_clean) == 9:
-                        # Chuẩn hoá định dạng Pháp 2 số + 2 chữ + 5 số (ví dụ: 24CA80782)
                         chars = list(txt_clean)
                         dmap = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
                         if not chars[0].isdigit() and chars[0] in dmap: chars[0] = dmap[chars[0]]
@@ -1201,32 +1202,46 @@ class IntelligentDocumentEngine:
                             if not chars[k].isdigit() and chars[k] in dmap: chars[k] = dmap[chars[k]]
                         fixed_pass = ''.join(chars)
                         if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', fixed_pass):
-                            fields['passport_number'] = fixed_pass
-                            crops['passport_number'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
-                            is_invalid_no = False
+                            header_pass_no = fixed_pass
+                            header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
                             break
-            
-            if is_invalid_no:
-                visual_pass_no = ''
-                for t in tokens:
-                    txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
-                    if any(k in txt_clean for k in BLACKLIST_WORDS):
-                        continue
-                    if len(txt_clean) == 8 and txt_clean.isdigit(): # likely date DDMMYYYY
-                        continue
+                            
+                    # 1.2 General Regex Format (e.g. NNPDR2915, PAZ218387, C1234567, 312217939)
                     for pattern in PASSPORT_REGEX:
                         if re.match(pattern, txt_clean):
-                            # Top-to-middle header area of passport
-                            if t['cy'] < (0.65 * h) and t['cx'] > (0.25 * w):
-                                visual_pass_no = txt_clean
-                                break
-                    if visual_pass_no:
+                            header_pass_no = txt_clean
+                            header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
+                            break
+                    if header_pass_no:
                         break
+                        
+            if header_pass_no:
+                fields['passport_number'] = header_pass_no
+                if header_crop is not None:
+                    crops['passport_number'] = img_to_b64(header_crop)
+            else:
+                curr_no = fields.get('passport_number', '')
+                is_invalid_no = not curr_no or len(curr_no) < 7 or curr_no.startswith('P<') or curr_no.startswith('PN2') or curr_no.startswith('P8') or bool(re.search(r'[0-9]{6}[0-9][MF]', curr_no))
+                if is_invalid_no:
+                    visual_pass_no = ''
+                    for t in tokens:
+                        txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
+                        if any(k in txt_clean for k in BLACKLIST_WORDS):
+                            continue
+                        if len(txt_clean) == 8 and txt_clean.isdigit():
+                            continue
+                        for pattern in PASSPORT_REGEX:
+                            if re.match(pattern, txt_clean):
+                                if t['cy'] < (0.65 * h) and t['cx'] > (0.25 * w):
+                                    visual_pass_no = txt_clean
+                                    break
+                        if visual_pass_no:
+                            break
 
-                if visual_pass_no:
-                    fields['passport_number'] = visual_pass_no
-                else:
-                    fields.pop('passport_number', None)
+                    if visual_pass_no:
+                        fields['passport_number'] = visual_pass_no
+                    else:
+                        fields.pop('passport_number', None)
 
             # 2. Visual Surname Search
             for i, t in enumerate(tokens):
