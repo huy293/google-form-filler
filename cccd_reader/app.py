@@ -2148,6 +2148,10 @@ def smart_orient_document(img, reader):
             best_angle = a
             best_rot = rot_code
             
+        # Fast Path: Nếu đã đạt điểm cực cao (>400), có Header trên, MRZ dưới và không có dấu > ngược -> Trả về ngay lập tức!
+        if score >= 400.0 and '>' not in full_txt and ('<' in full_txt or any(k in full_txt for k in kw_header)):
+            break
+            
     if best_rot is not None:
         return cv2.rotate(img, best_rot), best_angle
     return img, 0
