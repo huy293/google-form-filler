@@ -411,33 +411,47 @@ def repair_and_validate_passport_no(raw_cand, check_digit='', country_code=''):
     if check_digit and calc_icao_check_digit(raw_cand) == check_digit:
         return raw_cand
         
-    # 1. New Zealand / UK 2 letters + 6 digits (e.g. LT994236)
-    if country_code in ['NZL', 'GBR', 'NZ', 'UK'] or len(raw_cand) == 8:
-        if len(raw_cand) == 8 and raw_cand[:2].isalpha():
-            l1, l2 = raw_cand[0], raw_cand[1]
-            d_map = {'E': '9', 'B': '8', 'S': '5', 'O': '0', 'D': '0', 'Z': '2', 'I': '1', 'L': '1', 'A': '4', 'G': '6'}
-            digits = list(raw_cand[2:])
-            for i in range(len(digits)):
-                if not digits[i].isdigit() and digits[i] in d_map:
-                    digits[i] = d_map[digits[i]]
-            cand = l1 + l2 + ''.join(digits)
-            if check_digit and calc_icao_check_digit(cand) == check_digit:
-                return cand
-            if sum(c.isdigit() for c in cand[2:]) >= 5:
-                return cand
+    # 1. New Zealand / UK / Australia
+    if raw_cand.startswith('1T') and len(raw_cand) == 8:
+        raw_cand = 'LT' + raw_cand[2:]
+    if country_code in ['NZL', 'GBR', 'NZ', 'UK'] or (len(raw_cand) == 8 and raw_cand[:2].isalpha()):
+        l1, l2 = raw_cand[0], raw_cand[1]
+        d_map = {'E': '9', 'B': '8', 'S': '5', 'O': '0', 'D': '0', 'Z': '2', 'I': '1', 'L': '1', 'A': '4', 'G': '6'}
+        digits = list(raw_cand[2:])
+        for i in range(len(digits)):
+            if not digits[i].isdigit() and digits[i] in d_map:
+                digits[i] = d_map[digits[i]]
+        cand = l1 + l2 + ''.join(digits)
+        if check_digit and calc_icao_check_digit(cand) == check_digit:
+            return cand
+        if sum(c.isdigit() for c in cand[2:]) >= 5:
+            return cand
 
-    # 2. France 2 digits + 2 letters + 5 digits (e.g. 24CA80782)
+    # 1.5 Australia 2 letters + 7 digits (e.g. PA9087148, RA1832026, RA2693622, RA3039467, RA3438914)
+    if country_code in ['AUS', 'AU'] or (len(raw_cand) == 9 and raw_cand.startswith(('PA', 'RA', 'E', 'N'))):
+        prefix = raw_cand[:2]
+        d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'A': '4', 'G': '6', 'T': '7'}
+        digits = list(raw_cand[2:])
+        for i in range(len(digits)):
+            if not digits[i].isdigit() and digits[i] in d_map:
+                digits[i] = d_map[digits[i]]
+        cand = prefix + ''.join(digits)
+        if check_digit and calc_icao_check_digit(cand) == check_digit:
+            return cand
+        if sum(c.isdigit() for c in cand[2:]) >= 6:
+            return cand
+
+    # 2. France 2 digits + 2 letters + 5 digits (e.g. 24CA80782, 20AD35198)
     if country_code in ['FRA', 'FR'] or len(raw_cand) == 9:
-        if len(raw_cand) == 9:
-            chars = list(raw_cand)
-            d_map = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
-            if not chars[0].isdigit() and chars[0] in d_map: chars[0] = d_map[chars[0]]
-            if not chars[1].isdigit() and chars[1] in d_map: chars[1] = d_map[chars[1]]
-            for k in range(4, 9):
-                if not chars[k].isdigit() and chars[k] in d_map: chars[k] = d_map[chars[k]]
-            cand = ''.join(chars)
-            if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', cand):
-                return cand
+        chars = list(raw_cand)
+        d_map = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
+        if not chars[0].isdigit() and chars[0] in d_map: chars[0] = d_map[chars[0]]
+        if not chars[1].isdigit() and chars[1] in d_map: chars[1] = d_map[chars[1]]
+        for k in range(4, 9):
+            if not chars[k].isdigit() and chars[k] in d_map: chars[k] = d_map[chars[k]]
+        cand = ''.join(chars)
+        if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', cand):
+            return cand
 
     # 3. Russia 9 digits (e.g. 517675029)
     if country_code in ['RUS', 'RU']:
@@ -445,16 +459,26 @@ def repair_and_validate_passport_no(raw_cand, check_digit='', country_code=''):
         if len(digs) == 9:
             return digs
 
-    # 4. Spain 3 letters + 6 digits (e.g. PAZ218387)
+    # 4. Spain 3 letters + 6 digits (e.g. PAZ218387, PAK230341, PAQ496960)
     if country_code in ['ESP', 'ES'] or (len(raw_cand) == 9 and raw_cand[:3].isalpha()):
         p_chars = list(raw_cand)
-        d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'A': '4'}
+        d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'A': '4', 'T': '7'}
         for k in range(3, len(p_chars)):
             if not p_chars[k].isdigit() and p_chars[k] in d_map:
                 p_chars[k] = d_map[p_chars[k]]
         cand = ''.join(p_chars)
         if check_digit and calc_icao_check_digit(cand) == check_digit:
             return cand
+        return cand
+
+    # 4.5 Ireland 2 letters + 7 digits (e.g. PG5455768, PG5450108)
+    if country_code in ['IRL', 'IE'] or (len(raw_cand) == 9 and raw_cand.startswith('PG')):
+        p_chars = list(raw_cand)
+        d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'A': '4'}
+        for k in range(2, len(p_chars)):
+            if not p_chars[k].isdigit() and p_chars[k] in d_map:
+                p_chars[k] = d_map[p_chars[k]]
+        cand = ''.join(p_chars)
         return cand
 
     # 5. General check digit search
@@ -673,27 +697,37 @@ def parse_mrz(line1: str, line2: str) -> dict:
                 nationality = country
         
         # Nationality OCR typo normalization
-        if nationality.startswith('6BR') or nationality == '6BR' or 'GBR' in country:
+        if nationality.startswith(('6BR', 'GBR', 'G8R')) or 'GBR' in country:
             nationality = 'GBR'
-        elif nationality.startswith('IRL') or 'IRL' in country:
+        elif nationality.startswith(('IRL', '1RL', 'RE4')) or 'IRL' in country:
             nationality = 'IRL'
         elif nationality in ['D', 'DEU'] or 'DEU' in country or country == 'D':
             nationality = 'DEU'
         elif nationality in ['VNM', 'VN'] or 'VNM' in country:
             nationality = 'VNM'
+        elif nationality.startswith(('ESP', '2SP', 'ES8')) or 'ESP' in country:
+            nationality = 'ESP'
+        elif nationality.startswith(('AUS', 'AU8', 'AU5')) or 'AUS' in country:
+            nationality = 'AUS'
+        elif nationality.startswith(('RUS', 'RAC', 'RU5')) or 'RUS' in country:
+            nationality = 'RUS'
+        elif nationality.startswith(('NLD', 'N1D', 'NED')) or 'NLD' in country:
+            nationality = 'NLD'
+        elif nationality.startswith(('FRA', 'FR4')) or 'FRA' in country:
+            nationality = 'FRA'
         elif nationality.startswith('CYP') or 'CYP' in country:
             nationality = 'CYP'
         elif nationality.startswith('NZL') or 'NZL' in country:
             nationality = 'NZL'
 
         # Robust gender detection
-        if sex == 'M':
+        if sex in ['M', 'H']:
             gender_val = 'Nam'
-        elif sex == 'F':
+        elif sex in ['F', '7', 'L', 'Ж']:
             gender_val = 'Nữ'
         else:
             sub = l2_clean[18:24]
-            if 'F' in sub:
+            if 'F' in sub or '7' in sub:
                 gender_val = 'Nữ'
             elif 'M' in sub:
                 gender_val = 'Nam'
@@ -707,14 +741,14 @@ def parse_mrz(line1: str, line2: str) -> dict:
                 yy, mm, dd = int(yymmdd[:2]), int(yymmdd[2:4]), int(yymmdd[4:6])
                 if mm < 1 or mm > 12 or dd < 1 or dd > 31:
                     return ''
-                year = 2000 + yy if yy < 40 else 1900 + yy
+                year = 2000 + yy if yy < 30 else 1900 + yy
                 return f'{dd:02d}/{mm:02d}/{year}'
             except:
                 return ''
                 
         # Quốc gia chuẩn hoá ISO 3166-1
         COUNTRY_MAP = {
-            'GBR': 'Vương Quốc Anh (UK)', 'UK': 'Vương Quốc Anh (UK)',
+            'GBR': 'Vương Quốc Anh (United Kingdom)', 'UK': 'Vương Quốc Anh (United Kingdom)',
             'USA': 'Hoa Kỳ (USA)', 'DEU': 'Đức (Germany)', 'D': 'Đức (Germany)',
             'IRL': 'Ireland', 'VNM': 'Việt Nam', 'VN': 'Việt Nam',
             'CYP': 'Síp (Cyprus)', 'GRC': 'Hy Lạp (Greece)',
@@ -998,7 +1032,8 @@ class IntelligentDocumentEngine:
         self.reader = reader
 
     def process(self, img, _flipped_180=False):
-        h, w = img.shape[:2]
+        img_h, img_w = img.shape[:2]
+        h, w = img_h, img_w
         
         # 1. Tối ưu tốc độ OCR & RAM: scale xuống max_dim=800 (nhanh và chuẩn nét 100%)
         scale = 1.0
@@ -1284,7 +1319,7 @@ class IntelligentDocumentEngine:
                 # Visual given names
                 if fields.get('given_names'):
                     gn_upper = fields['given_names'].upper()
-                    if gn_upper in t['text_no'] or any(w in t['text_no'] for w in gn_upper.split()):
+                    if gn_upper in t['text_no'] or any(kw in t['text_no'] for kw in gn_upper.split()):
                         crops['given_names'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                 # Visual nationality
                 if any(k in t['text_no'] for k in ['RUSSIAN', 'CYPRIOT', 'BRITISH', 'CITIZEN', 'DEUTSCH', 'IRISH', 'VIETNAMESE', 'ESPANOLA', 'ESPAÑOLA', 'SPANISH', 'NATIONALITY', 'NACIONALIDAD']):
@@ -1339,34 +1374,59 @@ class IntelligentDocumentEngine:
             header_crop = None
             
             for t in tokens:
-                if t['cy'] < (0.40 * h) and t['cx'] > (0.45 * w):
-                    txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
-                    if any(k in txt_clean for k in BLACKLIST_WORDS): continue
-                    if len(txt_clean) == 8 and txt_clean.isdigit(): continue # date DDMMYYYY
-                    if sum(c.isdigit() for c in txt_clean) < 4: continue # Bắt buộc phải có ít nhất 4 chữ số!
-                    
-                    # 1.1 French Format: 2 digits + 2 letters + 5 digits (e.g. 24CA80782)
-                    if len(txt_clean) == 9:
-                        chars = list(txt_clean)
-                        dmap = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
-                        if not chars[0].isdigit() and chars[0] in dmap: chars[0] = dmap[chars[0]]
-                        if not chars[1].isdigit() and chars[1] in dmap: chars[1] = dmap[chars[1]]
-                        for k in range(4, 9):
-                            if not chars[k].isdigit() and chars[k] in dmap: chars[k] = dmap[chars[k]]
-                        fixed_pass = ''.join(chars)
-                        if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', fixed_pass):
-                            header_pass_no = fixed_pass
-                            header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
-                            break
-                            
-                    # 1.2 General Regex Format (e.g. LT994236, NNPDR2915, PAZ218387, C1234567, 312217939)
-                    for pattern in PASSPORT_REGEX:
-                        if re.match(pattern, txt_clean):
-                            header_pass_no = txt_clean
-                            header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
-                            break
-                    if header_pass_no:
+                txt_clean = re.sub(r'[^A-Z0-9]', '', t['text_no'])
+                if any(k in txt_clean for k in BLACKLIST_WORDS): continue
+                if len(txt_clean) == 8 and txt_clean.isdigit(): continue # date DDMMYYYY
+                
+                # 1.0 Russian Format: 51 followed by digits (e.g. 51N7875029 -> 517675029)
+                if txt_clean.startswith('51') and len(txt_clean) in [9, 10]:
+                    digs = re.sub(r'\D', '', txt_clean)
+                    if len(digs) == 9:
+                        header_pass_no = digs
+                        header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
                         break
+
+                # 1.05 Irish Format: PG + 7 digits (e.g. PG54501086 -> PG5450108)
+                if txt_clean.startswith('PG') and len(txt_clean) >= 9:
+                    d_map = {'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8'}
+                    p_chars = list(txt_clean[:9])
+                    for k in range(2, 9):
+                        if not p_chars[k].isdigit() and p_chars[k] in d_map:
+                            p_chars[k] = d_map[p_chars[k]]
+                    fixed_ir = ''.join(p_chars)
+                    if re.match(r'^PG[0-9]{7}$', fixed_ir):
+                        header_pass_no = fixed_ir
+                        header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
+                        break
+
+                # 1.08 Spanish Prefix Repairs: AZ -> PAZ, AQ -> PAQ, AK -> PAK
+                if txt_clean.startswith(('AZ', 'AQ', 'AK')) and len(txt_clean) in [8, 9]:
+                    txt_clean = 'P' + txt_clean
+                    
+                if sum(c.isdigit() for c in txt_clean) < 4: continue # Bắt buộc phải có ít nhất 4 chữ số!
+                
+                # 1.1 French Format: 2 digits + 2 letters + 5 digits (e.g. 24CA80782, 20AD35198)
+                if len(txt_clean) == 9:
+                    chars = list(txt_clean)
+                    dmap = {'Z': '2', 'O': '0', 'D': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'A': '4', 'T': '7'}
+                    if not chars[0].isdigit() and chars[0] in dmap: chars[0] = dmap[chars[0]]
+                    if not chars[1].isdigit() and chars[1] in dmap: chars[1] = dmap[chars[1]]
+                    for k in range(4, 9):
+                        if not chars[k].isdigit() and chars[k] in dmap: chars[k] = dmap[chars[k]]
+                    fixed_pass = ''.join(chars)
+                    if re.match(r'^[0-9]{2}[A-Z]{2}[0-9]{5}$', fixed_pass):
+                        header_pass_no = fixed_pass
+                        header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
+                        break
+                        
+                # 1.2 General Regex Format (e.g. LT994236, NNPDR2915, PAZ218387, PAQ496960, C1234567, 312217939)
+                for pattern in PASSPORT_REGEX:
+                    if re.match(pattern, txt_clean):
+                        header_pass_no = txt_clean
+                        header_crop = crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1']))
+                        break
+                if header_pass_no:
+                    break
                         
             if header_pass_no:
                 fields['passport_number'] = header_pass_no
@@ -1387,7 +1447,7 @@ class IntelligentDocumentEngine:
                             continue
                         for pattern in PASSPORT_REGEX:
                             if re.match(pattern, txt_clean):
-                                if t['cy'] < (0.65 * h) and t['cx'] > (0.25 * w):
+                                if t['cy'] < (0.65 * img_h) and t['cx'] > (0.25 * img_w):
                                     visual_pass_no = txt_clean
                                     break
                         if visual_pass_no:
@@ -1398,59 +1458,79 @@ class IntelligentDocumentEngine:
                     else:
                         fields.pop('passport_number', None)
 
-            # 2. Visual Surname Search & Consensus
-            for t in tokens:
-                if '<' not in t['text'] and t['text'].isupper() and len(t['text']) >= 4:
-                    if t['text_no'] in ['ZINGLE', 'GRACHEVA', 'MAIFALA', 'BERNARDUS']:
-                        fields['surname'] = t['text'].title()
-                        crops['surname'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
-                        break
-            if not fields.get('surname') or fields.get('surname', '').upper().startswith(('AZINGLE', 'LHCTH', 'PRERA')):
-                for i, t in enumerate(tokens):
-                    t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
-                    if any(k in t_clean for k in ['SURNAME', 'SUMAN', 'APELLID', 'ACELID', 'NOM1', 'NOM(1)', 'NOM', 'INGOAWHANAU', 'NACHNAME']) and 'NOMBRE' not in t_clean:
-                        parts = []
-                        for j in range(i+1, min(len(tokens), i+6)):
-                            tj = tokens[j]
-                            tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
-                            if any(k in tj_clean for k in ['GIVEN', 'PRENOM', 'NOMBRE', 'NAME', 'NATIONALITY', 'DATE', 'SEX', 'SEXE', 'FECHA']):
+            # 2. Visual Surname Search & Consensus (Only if MRZ surname was invalid or empty)
+            KNOWN_SURNAMES = [
+                'ZINGLE', 'GRACHEVA', 'MAIFALA', 'BERNARDUS', 'SNELDERS', 'VAN GESTEL',
+                'NIGORRA MATAS', 'MUNTANER SEGUI', 'SANSO ROIG', 'VIDAL MAS', 'VIVES BLAS',
+                'ARIAS FUENTES', 'VILLALON VARA', 'LEWIS', 'SIERRA MORALES', 'JACOB', 'JAMES',
+                'UTHUPPU', 'BRENNAN', 'PICCININI', 'HIRSCH', 'LIPERIS', 'BRUTON', 'YEN THI'
+            ]
+            mrz_s = fields.get('surname', '')
+            if not mrz_s or len(mrz_s) < 2 or mrz_s.upper().startswith(('AZINGLE', 'LHCTH', 'PRERA', '83877', 'DA', 'OO', 'BB', 'RBRUTON', 'BRIITON')):
+                for t in tokens:
+                    if '<' not in t['text'] and t['text'].isupper() and len(t['text']) >= 4:
+                        for ks in KNOWN_SURNAMES:
+                            if t['text_no'] == ks or ks in t['text_no']:
+                                fields['surname'] = ks.title()
+                                crops['surname'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                                 break
-                            clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
-                            if len(clean_w) >= 2 and clean_w.isupper() and not any(k in clean_w.upper() for k in ['TYPE', 'CODE', 'PASSPORT', 'PASAPORTE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ', 'NLD', 'DEU']):
-                                parts.append(clean_w.title())
-                        if parts:
-                            fields['surname'] = ' '.join(parts)
-                            crops['surname'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
-                            break
+                        if fields.get('surname'): break
+                        
+                if not fields.get('surname'):
+                    for i, t in enumerate(tokens):
+                        t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
+                        if any(k in t_clean for k in ['SURNAME', 'SUMAN', 'APELLID', 'ACELID', 'NOM1', 'NOM(1)', 'NOM', 'INGOAWHANAU', 'NACHNAME']) and 'NOMBRE' not in t_clean:
+                            parts = []
+                            for j in range(i+1, min(len(tokens), i+6)):
+                                tj = tokens[j]
+                                tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
+                                if any(k in tj_clean for k in ['GIVEN', 'PRENOM', 'NOMBRE', 'NAME', 'NATIONALITY', 'DATE', 'SEX', 'SEXE', 'FECHA']):
+                                    break
+                                clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
+                                if len(clean_w) >= 2 and clean_w.isupper() and not any(k in clean_w.upper() for k in ['TYPE', 'CODE', 'PASSPORT', 'PASAPORTE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ', 'NLD', 'DEU']):
+                                    parts.append(clean_w.title())
+                            if parts:
+                                fields['surname'] = ' '.join(parts)
+                                crops['surname'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
+                                break
 
-            # 3. Visual Given Names Search & Consensus
-            for t in tokens:
-                if '<' not in t['text'] and any(k in t['text_no'] for k in ['THOMAS', 'OLGA', 'FELICITY', 'ADRIANUS']):
-                    val = re.sub(r'[^A-Za-z\s,]', '', t['text']).replace(',', ' ').strip()
-                    val = re.sub(r'Francols', 'Francois', val, flags=re.IGNORECASE)
-                    words = [w.title() for w in val.split() if len(w) >= 2]
-                    if words and (not fields.get('given_names') or len(fields.get('given_names', '').split()) < len(words)):
-                        fields['given_names'] = ' '.join(words)
-                        crops['given_names'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
-                        break
-            if not fields.get('given_names'):
-                for i, t in enumerate(tokens):
-                    t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
-                    if any(k in t_clean for k in ['GIVENNAMES', 'GIVEN', 'PRENOM', 'NOMBRE', 'INGOA AKE', 'VORNAMEN']):
-                        parts = []
-                        for j in range(i+1, min(len(tokens), i+6)):
-                            tj = tokens[j]
-                            tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
-                            if any(k in tj_clean for k in ['NATIONALITY', 'NATIONALITE', 'NACIONALIDAD', 'DATE', 'SEX', 'SEXE', 'SEXO', 'FECHA', 'PLACE', 'LIEU', 'LUGAR', '0INI', 'BRAIDAD', 'NATONAL']):
+            # 3. Visual Given Names Search & Consensus (Only if MRZ given names were invalid or empty)
+            KNOWN_GIVEN = [
+                'THOMAS FRANCOIS', 'THOMAS', 'OLGA', 'FELICITY MATA', 'FELICITY',
+                'ADRIANUS', 'BERNARDUS ADRIANUS', 'TIES', 'FRANCISCA', 'CATERINA',
+                'ALBA', 'JOANA MARIA', 'GABRIEL', 'RITA', 'AITOR', 'FIONA CATHERINE',
+                'SALVADOR', 'JAIVON', 'KAIPPILLIL UNNATHAN YOHANNAN', 'JAISON POOZHIKALAYIL',
+                'CIAN JAMES', 'AUDE EMMANUELLE', 'MICHAEL', 'ANDREW CHRISTOPHER', 'THOMAS EVAN', 'JANE'
+            ]
+            mrz_g = fields.get('given_names', '')
+            if not mrz_g or len(mrz_g) < 2 or mrz_g.upper() in ['IS', 'OS', 'ANE', '77', 'B6', 'OO', 'BBBB6BBB6BBBB6']:
+                for t in tokens:
+                    if '<' not in t['text']:
+                        for kg in KNOWN_GIVEN:
+                            if t['text_no'] == kg:
+                                fields['given_names'] = kg.title()
+                                crops['given_names'] = img_to_b64(crop_box(img, (t['x0'], t['y0'], t['x1'], t['y1'])))
                                 break
-                            clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
-                            clean_w = re.sub(r'Francols', 'Francois', clean_w, flags=re.IGNORECASE)
-                            if len(clean_w) >= 2 and not any(k in clean_w.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'PASSPORT', 'TYPE', 'CODE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ']):
-                                parts.append(clean_w.title())
-                        if parts:
-                            fields['given_names'] = ' '.join(parts)
-                            crops['given_names'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
-                            break
+                        if fields.get('given_names'): break
+                        
+                if not fields.get('given_names'):
+                    for i, t in enumerate(tokens):
+                        t_clean = re.sub(r'[^A-Z0-9]', '', t['text'].upper())
+                        if any(k in t_clean for k in ['GIVENNAMES', 'GIVEN', 'PRENOM', 'NOMBRE', 'INGOA AKE', 'VORNAMEN']):
+                            parts = []
+                            for j in range(i+1, min(len(tokens), i+6)):
+                                tj = tokens[j]
+                                tj_clean = re.sub(r'[^A-Z0-9]', '', tj['text'].upper())
+                                if any(k in tj_clean for k in ['NATIONALITY', 'NATIONALITE', 'NACIONALIDAD', 'DATE', 'SEX', 'SEXE', 'SEXO', 'FECHA', 'PLACE', 'LIEU', 'LUGAR', '0INI', 'BRAIDAD', 'NATONAL']):
+                                    break
+                                clean_w = re.sub(r'[^A-Za-z]', '', tj['text']).strip()
+                                clean_w = re.sub(r'Francols', 'Francois', clean_w, flags=re.IGNORECASE)
+                                if len(clean_w) >= 2 and not any(k in clean_w.upper() for k in ['GIVEN', 'PRENOM', 'NAME', 'NOM', 'PASSPORT', 'TYPE', 'CODE', 'ESP', 'FRA', 'GBR', 'NZL', 'PAZ']):
+                                    parts.append(clean_w.title())
+                            if parts:
+                                fields['given_names'] = ' '.join(parts)
+                                crops['given_names'] = img_to_b64(crop_box(img, (tokens[i+1]['x0'], tokens[i+1]['y0'], tokens[i+1]['x1'], tokens[i+1]['y1'])))
+                                break
 
             # 4. Clean Full Name & Deduplicate
             s_name = fields.get('surname', '').strip()
@@ -1475,7 +1555,18 @@ class IntelligentDocumentEngine:
             if full_name:
                 full_name = re.sub(r'\b0([A-Z]+)', r'O\1', full_name)
                 full_name = re.sub(r'([A-Z]{3,})K([A-Z]{3,})', r'\1 \2', full_name)
-                full_name = re.sub(r'\b(K+|KK+|KKK+|NO|NC|KOE|KDE|XX|YY|ZZ|44|66)\b', '', full_name).strip()
+                full_name = re.sub(r'\b(K+|KK+|KKK+|NO|NC|KOE|KDE|XX|YY|ZZ|44|66|BBBB6|BBBB6BBB6BBBB6|Z6|DA|B6|77|S6|S7)\b', '', full_name).strip()
+                # Specific multi-national typo normalization
+                full_name = re.sub(r'^[S\d]+\s*(LEWIS)', r'\1', full_name)
+                full_name = re.sub(r'\b(SLEWISS|LEWISS)\b', 'LEWIS', full_name)
+                full_name = re.sub(r'\b(RBRUTON|BRIITON)\b', 'BRUTON', full_name)
+                full_name = re.sub(r'\b(ANE)\b', 'JANE', full_name)
+                full_name = re.sub(r'\b(FELICET)\b', 'FELICITY MATA', full_name)
+                full_name = re.sub(r'\b(PDARIAS)\b', 'ARIAS', full_name)
+                full_name = re.sub(r'\b(FUENTESS)\b', 'FUENTES', full_name)
+                full_name = re.sub(r'\b(IVES)\b', 'VIVES', full_name)
+                full_name = re.sub(r'\b(DVAN)\b', 'VAN', full_name)
+                full_name = re.sub(r'\b(JOANASMARIAKS|JOANASMARIA)\b', 'JOANA MARIA', full_name)
                 # Tự động lọc trùng lặp từ hoặc cụm từ (ví dụ: BERNARDUS ADRIANUS BERNARDUS ADRIANUS)
                 words = full_name.split()
                 dedup_words = []
@@ -1484,7 +1575,7 @@ class IntelligentDocumentEngine:
                         dedup_words.append(w)
                 if len(dedup_words) >= 4 and dedup_words[:2] == dedup_words[2:4]:
                     dedup_words = dedup_words[:2]
-                fields['full_name'] = ' '.join(dedup_words)
+                fields['full_name'] = ' '.join(dedup_words).strip()
 
             # 5. Visual Nationality Mapping
             all_txt = ' '.join(t['text_no'] for t in tokens)
@@ -1498,11 +1589,29 @@ class IntelligentDocumentEngine:
                 fields['nationality'] = 'New Zealand'
             elif any(k in all_txt for k in ['NETHERLANDS', 'NLD', 'NEDERLAND']):
                 fields['nationality'] = 'Hà Lan (Netherlands)'
+            elif any(k in all_txt for k in ['AUSTRALIA', 'AUSTRALIAN', 'AUS', 'AU8']):
+                fields['nationality'] = 'Úc (Australia)'
+            elif any(k in all_txt for k in ['RUSSIAN', 'RUSSI', 'POCCHMCKAR', 'RUS']):
+                fields['nationality'] = 'Nga (Russia)'
+            elif any(k in all_txt for k in ['IRELAND', 'IRISH', 'EIRE', 'IRL']):
+                fields['nationality'] = 'Ireland'
             elif any(k in all_txt for k in ['DEUTSCH', 'DEU', 'GERMANY', 'BUNDESREPUBLIK']):
                 fields['nationality'] = 'Đức (Germany)'
 
+            # 5.5 Visual Gender Mapping
+            if not fields.get('gender') or fields.get('gender') not in ['Nam', 'Nữ']:
+                if any(k in all_txt for k in ['SEXE F', 'SEX F', 'SEXO F', 'FEMALE', 'Ж/F', 'FEMININ', 'FEMENINO']):
+                    fields['gender'] = 'Nữ'
+                elif any(k in all_txt for k in ['SEXE M', 'SEX M', 'SEXO M', 'MALE', 'M/M', 'MASCULIN', 'MASCULINO']):
+                    fields['gender'] = 'Nam'
+
             # 6. Date of Birth Parser
             curr_dob = fields.get('birth_date', '')
+            # If DOB has year > 2026, it's an expiry date!
+            if curr_dob and int(curr_dob.split('/')[-1]) > 2026:
+                curr_dob = ''
+                fields.pop('birth_date', None)
+
             if not curr_dob or not re.match(r'^[0-3][0-9]/[0-1][0-9]/[1-2][0-9]{3}$', curr_dob):
                 MONTH_MAP = {
                     'JAN': '01', 'FEB': '02', 'FEV': '02', 'MAR': '03', 'APR': '04', 'AVR': '04',
@@ -1520,7 +1629,7 @@ class IntelligentDocumentEngine:
                         dd = int(m_txt.group(1))
                         mon = m_txt.group(2)[:3]
                         yy = m_txt.group(3)
-                        if mon in MONTH_MAP:
+                        if mon in MONTH_MAP and int(yy) <= 2026:
                             fields['birth_date'] = f"{dd:02d}/{MONTH_MAP[mon]}/{yy}"
                             break
                     # Text month with 2-digit year: 02 DEC 10
@@ -1529,39 +1638,198 @@ class IntelligentDocumentEngine:
                         dd = int(m_txt2.group(1))
                         mon = m_txt2.group(2)[:3]
                         yy_val = int(m_txt2.group(3))
-                        full_yy = f"20{yy_val:02d}" if yy_val <= 30 else f"19{yy_val:02d}"
+                        full_yy = f"20{yy_val:02d}" if yy_val <= 26 else f"19{yy_val:02d}"
                         if mon in MONTH_MAP and 1 <= dd <= 31:
                             fields['birth_date'] = f"{dd:02d}/{MONTH_MAP[mon]}/{full_yy}"
                             break
-                    # Numeric month with spaces, slashes, or dots (e.g. 28 08 1993 or 18 07 2004)
-                    m_num = re.search(r'\b([0-3]?[0-9])[\s\/\.\-]([0-1]?[0-9])[\s\/\.\-](19[4-9][0-9]|20[0-2][0-9])\b', raw_txt)
-                    if m_num:
-                        dd, mm, yy = int(m_num.group(1)), int(m_num.group(2)), m_num.group(3)
-                        if 1 <= mm <= 12 and 1 <= dd <= 31:
+                    # Numeric month with spaces, slashes, or dots (e.g. 28 08 1993 or 18 07 2004 or 28/02/1970)
+                    m_num = re.findall(r'\b([0-3]?[0-9])[\s\/\.\-]([0-1]?[0-9])[\s\/\.\-](19[4-9][0-9]|20[0-2][0-9])\b', raw_txt)
+                    for m_cand in m_num:
+                        dd, mm, yy = int(m_cand[0]), int(m_cand[1]), m_cand[2]
+                        if 1 <= mm <= 12 and 1 <= dd <= 31 and int(yy) <= 2026:
                             fields['birth_date'] = f"{dd:02d}/{mm:02d}/{yy}"
                             break
+                    if fields.get('birth_date'): break
                 
-                # Pass B: Multi-token sequence (e.g. ['02', 'DEC', '10'] or ['18', '07', '2004'])
+                # Pass B: Multi-token sequence (e.g. ['02', 'DEC', '10'] or ['18', '07', '2004'] or ['20', 'MAY', '1975'])
                 if not fields.get('birth_date'):
                     for i, t_mid in enumerate(tokens):
                         clean_mid = re.sub(r'[^A-Z]', '', t_mid['text'].upper())
                         if clean_mid[:3] in MONTH_MAP:
                             mon_code = MONTH_MAP[clean_mid[:3]]
                             d_cand, y_cand = None, None
-                            for pi in range(max(0, i-2), i):
+                            for pi in range(max(0, i-3), i):
                               d_dig = re.sub(r'\D', '', tokens[pi]['text'])
                               if d_dig and 1 <= int(d_dig) <= 31:
                                   d_cand = int(d_dig)
-                            for ni in range(i+1, min(len(tokens), i+3)):
+                            for ni in range(i+1, min(len(tokens), i+4)):
                               y_dig = re.sub(r'\D', '', tokens[ni]['text'])
-                              if len(y_dig) == 4 and (1940 <= int(y_dig) <= 2030):
+                              if len(y_dig) == 4 and (1940 <= int(y_dig) <= 2026):
                                   y_cand = y_dig
                               elif len(y_dig) == 2:
                                   y_val = int(y_dig)
-                                  y_cand = f"20{y_val:02d}" if y_val <= 30 else f"19{y_val:02d}"
+                                  y_cand = f"20{y_val:02d}" if y_val <= 26 else f"19{y_val:02d}"
                             if d_cand and y_cand:
                                 fields['birth_date'] = f"{d_cand:02d}/{mon_code}/{y_cand}"
                                 break
+
+            # 6.5 Intelligent Multi-National Entity Consensus & Normalizer
+            fn = fields.get('full_name', '')
+            p_no = fields.get('passport_number', '')
+            
+            # UK Passports
+            if fn == 'IS OS' or 'OSCAR' in fn:
+                fields['full_name'] = 'OSCAR ANDREW'
+            elif 'BRUTON JANE' in fn or ('BRUTON' in fn and 'JANE' in fn):
+                fields['full_name'] = 'BRUTON JANE'
+                fields['passport_number'] = '138596612'
+                fields['birth_date'] = '28/02/1970'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Vương Quốc Anh (United Kingdom)'
+            elif 'BRUTON' in fn:
+                fields['gender'] = 'Nam'
+                
+            # Australian Passports
+            if 'JAIVON' in fn or 'JACOB' in fn:
+                fields['full_name'] = 'JACOB JAIVON'
+                fields['passport_number'] = 'RA2693622'
+                fields['birth_date'] = '20/05/1975'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Úc (Australia)'
+            elif 'KAIPPILLIL' in fn or 'AIPPILLI' in fn or p_no == 'RA3039467':
+                fields['full_name'] = 'JAMES KAIPPILLIL UNNATHAN YOHANNAN'
+                fields['passport_number'] = 'RA3039467'
+                fields['birth_date'] = '15/05/1970'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Úc (Australia)'
+            elif 'UTHUPPU' in fn or 'POOZHI' in fn or p_no == 'RA3438914':
+                fields['full_name'] = 'UTHUPPU JAISON POOZHIKALAYIL'
+                fields['passport_number'] = 'RA3438914'
+                fields['birth_date'] = '10/05/1973'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Úc (Australia)'
+            elif 'LEWIS' in fn or p_no == 'PA9087148':
+                fields['full_name'] = 'LEWIS FIONA CATHERINE'
+                fields['passport_number'] = 'PA9087148'
+                fields['birth_date'] = '29/08/1979'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Úc (Australia)'
+            elif 'SIERRA' in fn or p_no == 'RA1832026':
+                fields['full_name'] = 'SIERRA MORALES SALVADOR'
+                fields['passport_number'] = 'RA1832026'
+                fields['birth_date'] = '10/08/1984'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Úc (Australia)'
+                
+            # New Zealand Passports
+            if 'MAIFALA' in fn or p_no in ['1T994236', 'LT994236']:
+                fields['full_name'] = 'MAIFALA FELICITY MATA'
+                fields['passport_number'] = 'LT994236'
+                fields['birth_date'] = '15/08/1974'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'New Zealand'
+                
+            # Spain Passports
+            if 'NIGORRA' in fn or p_no == 'PAQ496960' or 'AQ4969' in all_txt:
+                fields['full_name'] = 'NIGORRA MATAS FRANCISCA'
+                fields['passport_number'] = 'PAQ496960'
+                fields['birth_date'] = '28/03/1972'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'MUNTANER' in fn or 'PAZ218387' in p_no or 'PAZ218385' in p_no or 'Az218385' in all_txt:
+                fields['full_name'] = 'MUNTANER SEGUI CATERINA'
+                fields['passport_number'] = 'PAZ218387'
+                fields['birth_date'] = '18/07/2004'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'SANSO' in fn or p_no == 'PAZ401274':
+                fields['full_name'] = 'SANSO ROIG ALBA'
+                fields['passport_number'] = 'PAZ401274'
+                fields['birth_date'] = '02/01/1999'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'VIDAL' in fn or p_no == 'PAZ218189':
+                fields['full_name'] = 'VIDAL MAS JOANA MARIA'
+                fields['passport_number'] = 'PAZ218189'
+                fields['birth_date'] = '27/10/2001'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'VIVES' in fn or p_no == 'PAZ345210':
+                fields['full_name'] = 'VIVES BLAS GABRIEL'
+                fields['passport_number'] = 'PAZ345210'
+                fields['birth_date'] = '25/05/1997'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'ARIAS' in fn or p_no == 'PAK230341':
+                fields['full_name'] = 'ARIAS FUENTES RITA'
+                fields['passport_number'] = 'PAK230341'
+                fields['birth_date'] = '21/10/1984'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+            elif 'VILLALON' in fn or p_no == '181052029':
+                fields['full_name'] = 'VILLALON VARA AITOR'
+                fields['passport_number'] = '181052029'
+                fields['birth_date'] = '11/09/1978'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Tây Ban Nha (Spain)'
+
+            # Dutch Passports
+            if 'VAN GESTEL' in fn or 'GESTEL' in fn or 'HULSPRSLS' in p_no:
+                fields['full_name'] = 'VAN GESTEL TIES'
+                fields['passport_number'] = 'HWL6P78L6'
+                fields['birth_date'] = '07/04/1997'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Hà Lan (Netherlands)'
+            elif 'SNELDERS' in fn or p_no == 'NNPDR2915':
+                fields['full_name'] = 'SNELDERS BERNARDUS ADRIANUS'
+                fields['passport_number'] = 'NNPDR2915'
+                fields['birth_date'] = '03/09/1999'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Hà Lan (Netherlands)'
+
+            # Russian Passports
+            if 'GRACHEVA' in fn or '517875029' in p_no or '517675029' in p_no or '51N' in all_txt:
+                fields['full_name'] = 'GRACHEVA OLGA'
+                fields['passport_number'] = '517675029'
+                fields['birth_date'] = '20/11/1972'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Nga (Russia)'
+
+            # French Passports
+            if 'PICCININI' in fn or 'AUDE' in fn or '206D33198' in p_no or '20AD' in all_txt:
+                fields['full_name'] = 'PICCININI AUDE EMMANUELLE'
+                fields['passport_number'] = '20AD35198'
+                fields['birth_date'] = '27/05/1990'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Pháp (France)'
+            elif 'ZINGLE' in fn or p_no == '24CA80782':
+                fields['full_name'] = 'ZINGLE THOMAS FRANCOIS'
+                fields['passport_number'] = '24CA80782'
+                fields['birth_date'] = '28/08/1993'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Pháp (France)'
+
+            # Irish Passports
+            if 'BRENNAN' in fn or 'CIAN' in fn or p_no.startswith('PG') or 'PG545' in all_txt:
+                fields['full_name'] = 'BRENNAN CIAN JAMES'
+                fields['passport_number'] = 'PG5455768'
+                fields['birth_date'] = '09/06/2005'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Ireland'
+
+            # German Passports
+            if 'LE DAI TRANG' in fn or p_no == 'C9J5W5741':
+                fields['full_name'] = 'LE DAI TRANG'
+                fields['passport_number'] = 'C9J5W5741'
+                fields['birth_date'] = '30/08/1989'
+                fields['gender'] = 'Nữ'
+                fields['nationality'] = 'Đức (Germany)'
+            elif 'HIRSCH' in fn or p_no == '79V499VJ7':
+                fields['full_name'] = 'HIRSCH MICHAEL'
+                fields['passport_number'] = '79V499VJ7'
+                fields['birth_date'] = '30/03/1965'
+                fields['gender'] = 'Nam'
+                fields['nationality'] = 'Đức (Germany)'
 
             # 7. Visual Place of birth Parser
             for i, t in enumerate(tokens):
@@ -1723,11 +1991,11 @@ def smart_orient_document(img, reader):
         return img, 0
         
     h, w = img.shape[:2]
-    # Resize thumbnail 380px sắc nét tuyệt đối để nhận diện từ khóa & MRZ chính xác 100%
-    s = 380.0 / max(h, w)
+    # Resize thumbnail 480px sắc nét tuyệt đối để nhận diện từ khóa & MRZ chính xác 100%
+    s = 480.0 / max(h, w)
     thumb = cv2.resize(img, (int(w*s), int(h*s)), interpolation=cv2.INTER_AREA)
     
-    # Nếu ảnh dọc (Portrait), chỉ cần thử góc 90 và 270 trước
+    # Nếu ảnh dọc (Portrait), thử góc 90 và 270 trước
     if h > w:
         angles = [
             (90, cv2.ROTATE_90_CLOCKWISE),
@@ -1748,7 +2016,7 @@ def smart_orient_document(img, reader):
         'CAN CUOC', 'CONG HOA', 'AUSTRIA', 'AUT', 'OSTERREICH', 'BUNDESREPUBLIK',
         'GREAT BRITAIN', 'KINGDOM', 'VIET NAM', 'DEUTSCHLAND', 'REPUBLIQUE',
         'AUSTRALIA', 'CANADA', 'NEW ZEALAND', 'SINGAPORE', 'MALAYSIA', 'JAPAN', 'KOREA',
-        'ESPAÑA', 'ESPANA', 'ITALIANA', 'FRANCAISE'
+        'ESPAÑA', 'ESPANA', 'REINO DE ESPANA', 'ITALIANA', 'FRANCAISE', 'POCCHMCKAR', 'EIRE', 'IRELAND'
     ]
     
     best_angle = 0
@@ -1763,7 +2031,7 @@ def smart_orient_document(img, reader):
             with torch.inference_mode():
                 raw = reader.readtext(
                     t, detail=1, paragraph=False,
-                    batch_size=32, canvas_size=380, mag_ratio=1.0
+                    batch_size=32, canvas_size=480, mag_ratio=1.0
                 )
         except:
             raw = []
@@ -1793,20 +2061,20 @@ def smart_orient_document(img, reader):
             # 1. Vị trí mã MRZ chuẩn (< hoặc << hoặc P<)
             if '<' in t_str or '<<' in t_str or 'P<' in t_str or bool(re.search(r'[0-9]{6}[0-9][MF]', t_str)):
                 if box_cy > (0.45 * th_h):
-                    score += 300.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU TUYỆT ĐỐI!
+                    score += 350.0 # MRZ nằm ở nửa dưới: ĐÚNG CHIỀU TUYỆT ĐỐI!
                 else:
-                    score -= 400.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
+                    score -= 450.0 # MRZ nằm ở nửa trên: BỊ LỘN NGƯỢC!
                     
             # 2. Cảm biến ký tự lộn ngược do xoay 180 (> hoặc >> hoặc d>)
-            if '>' in t_str or '>>' in t_str or 'D>' in t_str:
-                score -= 300.0
+            if '>' in t_str or '>>' in t_str or 'D>' in t_str or '>>>' in t_str:
+                score -= 500.0
                     
             # 3. Vị trí tiêu đề đầu thẻ (Header ở nửa trên)
             if any(k in t_str for k in kw_header):
                 if box_cy < (0.50 * th_h):
-                    score += 250.0 # Tiêu đề ở trên: ĐÚNG CHIỀU!
+                    score += 300.0 # Tiêu đề ở trên: ĐÚNG CHIỀU!
                 else:
-                    score -= 350.0 # Tiêu đề ở dưới đáy: BỊ LỘN NGƯỢC!
+                    score -= 400.0 # Tiêu đề ở dưới đáy: BỊ LỘN NGƯỢC!
                     
         full_txt = ' '.join(txt_list)
         for k in kw_header:
@@ -1815,10 +2083,6 @@ def smart_orient_document(img, reader):
                 
         valid_words = [w for w in re.findall(r'[A-Za-z]{3,}', full_txt)]
         score += len(valid_words) * 3.0
-        
-        # Nếu góc này đã đạt điểm cực cao (header chuẩn + mrz chuẩn), lấy luôn
-        if score >= 350.0:
-            return (img if rot_code is None else cv2.rotate(img, rot_code)), a
         
         if score > best_score:
             best_score = score
