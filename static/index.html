@@ -1865,15 +1865,19 @@
         }
 
         function prevSlide() {
-            if (allImages.length === 0) return;
-            currentSlideIdx = (currentSlideIdx - 1 + allImages.length) % allImages.length;
-            animateSlideTransition('prev');
+            if (allImages.length <= 1) return;
+            if (currentSlideIdx > 0) {
+                currentSlideIdx--;
+                animateSlideTransition('prev');
+            }
         }
 
         function nextSlide() {
-            if (allImages.length === 0) return;
-            currentSlideIdx = (currentSlideIdx + 1) % allImages.length;
-            animateSlideTransition('next');
+            if (allImages.length <= 1) return;
+            if (currentSlideIdx < allImages.length - 1) {
+                currentSlideIdx++;
+                animateSlideTransition('next');
+            }
         }
 
         function animateSlideTransition(direction) {
@@ -1906,15 +1910,16 @@
 
             const prevBtn = document.querySelector('.lightbox-nav-btn.prev');
             const nextBtn = document.querySelector('.lightbox-nav-btn.next');
-            if (prevBtn && nextBtn) {
-                const showNav = allImages.length > 1;
-                prevBtn.style.display = showNav ? 'flex' : 'none';
-                nextBtn.style.display = showNav ? 'flex' : 'none';
+            if (prevBtn) {
+                prevBtn.style.display = (allImages.length > 1 && currentSlideIdx > 0) ? 'flex' : 'none';
+            }
+            if (nextBtn) {
+                nextBtn.style.display = (allImages.length > 1 && currentSlideIdx < allImages.length - 1) ? 'flex' : 'none';
             }
         }
 
         /* -----------------------------------------------------
-           TOUCH SWIPE & GESTURES CHO MOBILE
+           TOUCH SWIPE & GESTURES CHO MOBILE (KHÔNG LOOP)
         ----------------------------------------------------- */
         let touchStartX = 0;
         let touchStartY = 0;
@@ -1949,7 +1954,12 @@
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
                     const track = document.getElementById('lightboxTrack');
                     if (track) {
-                        track.style.transform = `translateX(${deltaX * 0.8}px)`;
+                        // Lực cản đàn hồi (rubber-band) khi vuốt quá đầu hoặc cuối slide
+                        let factor = 0.8;
+                        if ((currentSlideIdx === 0 && deltaX > 0) || (currentSlideIdx === allImages.length - 1 && deltaX < 0)) {
+                            factor = 0.2;
+                        }
+                        track.style.transform = `translateX(${deltaX * factor}px)`;
                     }
                 }
             }, { passive: true });
@@ -1970,9 +1980,13 @@
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
                     // Ngưỡng lướt: kéo quá 40px hoặc vuốt nhanh (flick) > 25px trong vòng 300ms
                     if (deltaX < -40 || (deltaX < -25 && deltaTime < 300)) {
-                        nextSlide();
+                        if (currentSlideIdx < allImages.length - 1) {
+                            nextSlide();
+                        }
                     } else if (deltaX > 40 || (deltaX > 25 && deltaTime < 300)) {
-                        prevSlide();
+                        if (currentSlideIdx > 0) {
+                            prevSlide();
+                        }
                     }
                 }
             }, { passive: true });
