@@ -106,6 +106,7 @@ class SubmitRequest(BaseModel):
     guestId: str
     gender: str
     repName: str = "Trần Đình Lam"
+    repPhone: str = "0342531400"
     sharedNation: str = ""
     fullName: str = ""
     birthDate: str = ""
@@ -367,15 +368,16 @@ async def fill_form_playwright(data: SubmitRequest):
     global RUNNING_LOGS
     RUNNING_LOGS = []
     
-    # 1. Prepare values (Use specified Submitter Name, default: Trần Đình Lam)
+    # 1. Prepare values (Use specified Submitter Name & Phone, default: Trần Đình Lam, 0342531400)
     if data.repName and data.repName.strip():
         rep_name = data.repName.strip()
     else:
         rep_name = "Trần Đình Lam"
     
-    phone_prefix = random.choice(["09", "03", "07", "08", "05"])
-    phone_suffix = "".join(random.choice("0123456789") for _ in range(8))
-    rep_phone = phone_prefix + phone_suffix
+    if data.repPhone and data.repPhone.strip():
+        rep_phone = data.repPhone.strip()
+    else:
+        rep_phone = "0342531400"
     
     # Check if the guestId is a Vietnamese CCCD (exactly 12 digits)
     guest_id_clean = "".join(c for c in data.guestId if c.isdigit())
