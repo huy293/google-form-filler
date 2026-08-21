@@ -105,17 +105,18 @@ class SubmitRequest(BaseModel):
     unitCode: str
     guestId: str
     gender: str
+    repName: str = "Trần Đình Lam"
     sharedNation: str = ""
     fullName: str = ""
     birthDate: str = ""
     birthYear: str = ""
-    nationality: str = ""
+    nationality: str = "Úc"
     address: str = ""
     visa: str = ""
     visaExpDate: str = ""
 
 # Lists of names and addresses for realistic randomization
-REP_MALE_NAMES = ["Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
+REP_MALE_NAMES = ["Trần Đình Lam", "Nguyễn Văn Hùng", "Trần Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Bảo", "Nguyễn Hải Dương", "Trần Việt Anh", "Đỗ Minh Đức", "Vũ Huy Hoàng", "Nguyễn Hữu Đạt", "Lê Gia Bách"]
 REP_FEMALE_NAMES = ["Nguyễn Thị Mai", "Trần Thu Trang", "Lê Linh Chi", "Phạm Hải Yến", "Nguyễn Khánh An", "Trần Mỹ Linh", "Đỗ Vân Anh", "Vũ Phương Thảo", "Lê Mai Hương", "Phạm Quỳnh Chi"]
 
 GUEST_MALE_NAMES = ["Bennan", "John", "David", "Alex", "Michael", "James", "Robert", "William", "Peter", "Thomas", "Paul", "Daniel", "Chris", "Nguyễn Văn Nam", "Trần Hoàng Bách", "Lê Tuấn Kiệt"]
@@ -366,9 +367,11 @@ async def fill_form_playwright(data: SubmitRequest):
     global RUNNING_LOGS
     RUNNING_LOGS = []
     
-    # 1. Prepare values (Use PRO Real Data if provided, else Realistic Smart Randomization)
-    rep_gender = random.choice(["male", "female"])
-    rep_name = random.choice(REP_MALE_NAMES) if rep_gender == "male" else random.choice(REP_FEMALE_NAMES)
+    # 1. Prepare values (Use specified Submitter Name, default: Trần Đình Lam)
+    if data.repName and data.repName.strip():
+        rep_name = data.repName.strip()
+    else:
+        rep_name = "Trần Đình Lam"
     
     phone_prefix = random.choice(["09", "03", "07", "08", "05"])
     phone_suffix = "".join(random.choice("0123456789") for _ in range(8))
@@ -388,13 +391,13 @@ async def fill_form_playwright(data: SubmitRequest):
         else:
             guest_name = random.choice(GUEST_MALE_NAMES[:13]) if gender == "male" else random.choice(GUEST_FEMALE_NAMES[:13])
             
-    # Nationality
+    # Nationality / Region (Default: Úc for foreign passports, Việt Nam for 12-digit CCCD)
     if data.nationality and data.nationality.strip():
         nation = data.nationality.strip()
     elif data.sharedNation and data.sharedNation.strip():
         nation = data.sharedNation.strip()
     else:
-        nation = "Việt Nam" if is_vietnamese_cccd else random.choice(["Lithuania", "USA", "Đức", "Anh", "Hàn Quốc", "Nga", "Pháp"])
+        nation = "Việt Nam" if is_vietnamese_cccd else "Úc"
         
     # Year of Birth
     if data.birthYear and data.birthYear.strip():

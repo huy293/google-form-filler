@@ -1005,6 +1005,17 @@
                     <input type="text" id="stdUnitCode" class="form-control" required placeholder="Ví dụ: A-12.34 hoặc A12.99" autocomplete="off">
                 </div>
 
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Tên Người Điền Form</label>
+                        <input type="text" id="stdRepName" class="form-control" value="Trần Đình Lam" placeholder="Tên người đăng ký">
+                    </div>
+                    <div>
+                        <label>Quốc Tịch / Region</label>
+                        <input type="text" id="stdNation" class="form-control" value="Úc" placeholder="Ví dụ: Úc, Việt Nam...">
+                    </div>
+                </div>
+
                 <div class="guest-section-title">
                     <span>Danh Sách Khách Đăng Ký</span>
                 </div>
@@ -1315,6 +1326,8 @@
         async function handleStandardSubmit(e) {
             e.preventDefault();
             const unitCode = document.getElementById('stdUnitCode').value.trim();
+            const repName = document.getElementById('stdRepName').value.trim() || 'Trần Đình Lam';
+            const stdNation = document.getElementById('stdNation').value.trim() || 'Úc';
             const rows = document.querySelectorAll('#stdGuestList .guest-row');
             if (rows.length === 0) return;
 
@@ -1322,7 +1335,12 @@
             rows.forEach(row => {
                 const guestId = row.querySelector('.std-guest-id').value.trim();
                 const gender = row.querySelector('.std-guest-gender').value;
-                guests.push({ guestId, gender });
+                guests.push({ 
+                    guestId, 
+                    gender,
+                    repName,
+                    nationality: stdNation
+                });
             });
 
             await executeRegistration(unitCode, guests, document.getElementById('btnStdSubmit'));
@@ -1746,9 +1764,10 @@
                             unitCode: unitCode,
                             guestId: guest.guestId,
                             gender: guest.gender,
+                            repName: guest.repName || "Trần Đình Lam",
                             fullName: guest.fullName || "",
                             birthDate: guest.birthDate || "",
-                            nationality: guest.nationality || "",
+                            nationality: guest.nationality || "Úc",
                             address: guest.address || ""
                         })
                     });
